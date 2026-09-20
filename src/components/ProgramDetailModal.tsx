@@ -1,0 +1,323 @@
+import React, { useState } from 'react';
+import { 
+  X, 
+  ExternalLink, 
+  FileText, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Clock, 
+  Sparkles, 
+  ShieldCheck, 
+  Building2, 
+  Calculator, 
+  HelpCircle,
+  Loader2,
+  ChevronRight
+} from 'lucide-react';
+import { FinancingProgram, Provider, MatchReason, Language, ApplicantProfile } from '../types/financing';
+import { TRANSLATIONS } from '../i18n/translations';
+import { VerificationBadge } from './VerificationBadge';
+import { TrustBadge } from './TrustBadge';
+
+interface ProgramDetailModalProps {
+  program: FinancingProgram;
+  provider: Provider;
+  reasons?: MatchReason;
+  applicantProfile: ApplicantProfile;
+  language: Language;
+  onClose: () => void;
+  onPrepareDossier: (programId: string) => void;
+}
+
+export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
+  program,
+  provider,
+  reasons,
+  applicantProfile,
+  language,
+  onClose,
+  onPrepareDossier
+}) => {
+  const t = TRANSLATIONS[language];
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
+
+  const fetchAiExplanation = async () => {
+    setIsLoadingAi(true);
+    try {
+      const res = await fetch('/api/gemini/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          programName: program.name[language],
+          providerName: provider.name,
+          reasons: reasons || {},
+          language
+        })
+      });
+      const data = await res.json();
+      if (data.explanation) {
+        setAiExplanation(data.explanation);
+      }
+    } catch (err) {
+      console.error('Error fetching AI explanation:', err);
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6">
+      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+        {/* Modal Header */}
+        <div className="p-6 bg-slate-900 text-white flex items-start justify-between gap-4 shrink-0">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-amber-300 text-xs font-bold uppercase tracking-wider">
+                {provider.acronym}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-md bg-blue-900/60 text-blue-200 text-xs font-medium">
+                {program.category.replace('_', ' ').toUpperCase()}
+              </span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-bold font-display text-white">
+              {program.name[language]}
+            </h2>
+            <p className="text-sm text-slate-300 mt-1">
+              {program.tagline[language]}
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Scrollable Body */}
+        <div className="p-6 sm:p-8 overflow-y-auto space-y-8">
+          {/* Verification & Provenance Banner */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <VerificationBadge verification={program.verification} language={language} showSourceLink />
+            <span className="text-xs text-slate-500 font-mono">
+              Réf: {program.id} • {provider.headquarters}
+            </span>
+          </div>
+
+          {/* Key Parameters 4-Grid */}
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
+              {language === 'ar' ? 'المعايير المالية الأساسية' : 'Paramètres financiers officiels'}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white">
+                <span className="text-slate-500 block mb-1">Montant admissible</span>
+                <span className="text-base font-extrabold text-slate-900">
+                  {program.minAmount.toLocaleString('fr-FR')} à {program.maxAmount.toLocaleString('fr-FR')} DT
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-white">
+                <span className="text-slate-500 block mb-1">Taux & Coût</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {program.rateDescription[language]}
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-white">
+                <span className="text-slate-500 block mb-1">Durée maximale</span>
+                <span className="text-sm font-bold text-slate-900">
+                  Jusqu'à {Math.round(program.durationMonthsMax / 12)} ans ({program.durationMonthsMax} mois)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-white">
+                <span className="text-slate-500 block mb-1">Différé (Franchise)</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {program.gracePeriodMonthsMin} à {program.gracePeriodMonthsMax} mois
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Guarantees & Collateral */}
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50">
+            <h3 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-blue-700" />
+              <span>Garanties & Sûretés exigées</span>
+            </h3>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              {program.guaranteeRequirements[language]}
+            </p>
+          </div>
+
+          {/* Target Audience & Eligible Sectors */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="p-5 rounded-xl border border-slate-200 bg-white">
+              <h4 className="font-bold text-slate-900 mb-2">À qui s’adresse ce dispositif ?</h4>
+              <p className="text-slate-600 leading-relaxed mb-3">
+                {program.targetAudience[language]}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {program.eligibilityCriteria.stages.map(st => (
+                  <span key={st} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                    {st.replace('_', ' ')}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-slate-200 bg-white">
+              <h4 className="font-bold text-slate-900 mb-2">Secteurs admis & Dépenses éligibles</h4>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {program.purposes.map(pur => (
+                  <span key={pur} className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 font-semibold">
+                    {pur.replace('_', ' ')}
+                  </span>
+                ))}
+              </div>
+              <p className="text-slate-500 text-[11px]">
+                Apport personnel minimum imposé par la réglementation : <strong>{program.minContributionPercent}%</strong> du coût de projet.
+              </p>
+            </div>
+          </div>
+
+          {/* Step-by-Step Application Process */}
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
+              {language === 'ar' ? 'مراحل تقديم ومعالجة الملف' : 'Étapes concrètes de demande & instruction'}
+            </h3>
+            <div className="space-y-2.5">
+              {program.applicationSteps.map((stepItem, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center shrink-0 text-[11px]">
+                    {stepItem.step || idx + 1}
+                  </span>
+                  <div>
+                    <span className="text-slate-900 font-bold block">{stepItem.title[language]}</span>
+                    <span className="text-slate-700 leading-relaxed block mt-0.5">{stepItem.description[language]}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Required Documents Checklist */}
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-slate-600" />
+              <span>{language === 'ar' ? 'الوثائق الإدارية والمالية المطلوبة' : 'Dossier documentaire à fournir'}</span>
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {program.requiredDocuments.map((docItem, idx) => (
+                <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="text-slate-800 font-medium">{docItem.name[language]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Realistic Caveats & Delays */}
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+            <h4 className="font-bold flex items-center gap-1.5 mb-1 text-amber-950">
+              <AlertTriangle className="w-4 h-4 text-amber-700" />
+              <span>{language === 'ar' ? 'تنبيهات وتوقعات واقعية للإجراءات :' : 'Mises en garde & Réalités du terrain :'}</span>
+            </h4>
+            <div className="space-y-1">
+              {program.importantCaveats.map((c, i) => (
+                <p key={i} className="leading-relaxed text-amber-900">
+                  • {c[language]}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Gemini AI Strategic Advice */}
+          <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-700" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
+                  {language === 'ar' ? 'نصائح ذكاء ميزان لمقابلة البنك' : 'Conseils stratégiques pour votre entretien bancaire'}
+                </h4>
+              </div>
+              <TrustBadge type="ai_interpretation" language={language} subtle />
+            </div>
+
+            {aiExplanation ? (
+              <div className="mt-3 p-4 rounded-xl bg-white border border-indigo-100 text-xs text-slate-800 leading-relaxed whitespace-pre-line shadow-xs">
+                {aiExplanation}
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-slate-600">
+                  {language === 'ar'
+                    ? 'اطلب تحليلاً ذكياً مخصصاً لنقاط القوة والأسئلة المفتاحية لهذا البرنامج.'
+                    : 'Générez les arguments clés et les points de négociation pour ce financeur.'}
+                </p>
+                <button
+                  onClick={fetchAiExplanation}
+                  disabled={isLoadingAi}
+                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                >
+                  {isLoadingAi ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Analyse...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Générer mes conseils</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Sticky Footer Actions */}
+        <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            {program.verification.sourceUrl && (
+              <a
+                href={program.verification.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <span>{t.officialSourceBtn}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 text-xs font-semibold"
+            >
+              Fermer
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                onPrepareDossier(program.id);
+              }}
+              className="px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              <span>{t.prepareDossierBtn}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
