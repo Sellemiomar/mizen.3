@@ -18,7 +18,12 @@ export function evaluateProgramCompatibility(
     ? applicant.financingRequested 
     : (applicant.totalProjectCost - applicant.userContribution);
 
-  if (amount >= program.minAmount && amount <= program.maxAmount) {
+  if (amount <= 0) {
+    needsVerification.push({
+      fr: `Montant de financement non précisé : vérifier que le besoin se situe dans la fourchette d'intervention [${program.minAmount.toLocaleString('fr-FR')} - ${program.maxAmount.toLocaleString('fr-FR')} DT].`,
+      ar: `المبلغ المطلوب غير محدد : يرجى التأكد من أن الحاجة تقع ضمن نطاق البرنامج [${program.minAmount.toLocaleString('fr-FR')} - ${program.maxAmount.toLocaleString('fr-FR')} د].`
+    });
+  } else if (amount >= program.minAmount && amount <= program.maxAmount) {
     matchedBecause.push({
       fr: `Montant demandé (${amount.toLocaleString('fr-FR')} DT) aligné avec le plafond du programme [${program.minAmount.toLocaleString('fr-FR')} - ${program.maxAmount.toLocaleString('fr-FR')} DT].`,
       ar: `المبلغ المطلوب (${amount.toLocaleString('fr-FR')} د) متطابق مع سقف البرنامج [${program.minAmount.toLocaleString('fr-FR')} - ${program.maxAmount.toLocaleString('fr-FR')} د].`
@@ -87,7 +92,14 @@ export function evaluateProgramCompatibility(
   const totalCost = applicant.totalProjectCost > 0 ? applicant.totalProjectCost : (amount + applicant.userContribution);
   const contributionRatio = totalCost > 0 ? (applicant.userContribution / totalCost) * 100 : 0;
 
-  if (contributionRatio >= program.minContributionPercent) {
+  if (totalCost <= 0 && applicant.userContribution <= 0) {
+    if (program.minContributionPercent > 0) {
+      needsVerification.push({
+        fr: `Apport personnel non renseigné : ce mécanisme requiert un apport propre d'au moins ${program.minContributionPercent}% du coût global.`,
+        ar: `التمويل الذاتي غير محدد : يشترط هذا البرنامج مساهمة ذاتية لا تقل عن ${program.minContributionPercent}% من الكلفة الإجمالية.`
+      });
+    }
+  } else if (contributionRatio >= program.minContributionPercent) {
     if (program.minContributionPercent > 0) {
       matchedBecause.push({
         fr: `Apport personnel déclaré (${contributionRatio.toFixed(1)}%) suffisant par rapport au minimum requis (${program.minContributionPercent}%).`,
@@ -103,7 +115,61 @@ export function evaluateProgramCompatibility(
     scoreWeight -= 25;
   }
 
-  // 6. Regional Development Zone (ZDR) bonus
+  // 6. Forme juridique (Legal Structure)
+  if (applicant.legalStructure) {
+    if (applicant.legalStructure === 'not_yet_created') {
+      if (program.eligibilityCriteria.allowedLegalForms.includes('not_yet_created') || applicant.businessStage === 'idea_project') {
+        needsVerification.push({
+          fr: `Entreprise en cours de constitution : choisir une forme juridique éligible (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) avant le déblocage.`,
+          ar: `المؤسسة في طور التأسيس : يتعين اختيار شكل قانوني مؤهل (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) قبل صرف التمويل.`
+        });
+      } else {
+        potentialIssues.push({
+          fr: `Structure juridique formalisée requise : ce mécanisme s'adresse aux entreprises déjà immatriculées au RNE (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
+          ar: `يشترط وجود هيكل قانوني مسجل : هذه الآلية مخصصة للمؤسسات المسجلة بالسجل الوطني للمؤسسات (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
+        });
+        scoreWeight -= 20;
+      }
+    } else if (program.eligibilityCriteria.allowedLegalForms.includes(applicant.legalStructure)) {
+      matchedBecause.push({
+        fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) admise par ce dispositif.`,
+        ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) مقبولة ومؤهلة لدى هذه الآلية.`
+      });
+      scoreWeight += 10;
+    } else {
+      potentialIssues.push({
+        fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) non admise : les formes requises sont (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
+        ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) غير مؤهلة : الأشكال المقبولة هي (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
+      });
+      scoreWeight -= 25;
+    }
+  }
+
+  // 7. Âge du promoteur (Applicant Age)
+  if (program.eligibilityCriteria.maxAge) {
+    if (applicant.applicantAge && applicant.applicantAge > 0) {
+      if (applicant.applicantAge <= program.eligibilityCriteria.maxAge) {
+        matchedBecause.push({
+          fr: `Critère d'âge respecté (${applicant.applicantAge} ans <= ${program.eligibilityCriteria.maxAge} ans).`,
+          ar: `شرط السن متوفر (${applicant.applicantAge} سنة <= ${program.eligibilityCriteria.maxAge} سنة).`
+        });
+        scoreWeight += 10;
+      } else {
+        potentialIssues.push({
+          fr: `Âge du porteur (${applicant.applicantAge} ans) supérieur au plafond fixé à ${program.eligibilityCriteria.maxAge} ans pour ce dispositif.`,
+          ar: `سن الباعث (${applicant.applicantAge} سنة) يتجاوز السقف المحدد بـ ${program.eligibilityCriteria.maxAge} سنة لهذه الآلية.`
+        });
+        scoreWeight -= 30;
+      }
+    } else {
+      needsVerification.push({
+        fr: `Vérifier le critère d'âge : plafond fixé à ${program.eligibilityCriteria.maxAge} ans pour les bénéficiaires de ce programme.`,
+        ar: `التثبت من شرط السن : السقف الأقصى محدد بـ ${program.eligibilityCriteria.maxAge} سنة للمنتفعين بهذا البرنامج.`
+      });
+    }
+  }
+
+  // 8. Regional Development Zone (ZDR) bonus
   const isZdrLocation = applicant.isRegionalDevelopmentZone || REGIONAL_DEVELOPMENT_ZONES.includes(applicant.location);
   if (isZdrLocation) {
     if (program.id === 'foprodi_dotation' || program.id === 'sotugar_guarantee' || program.id === 'bfpme_creation') {
@@ -115,7 +181,7 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 7. Degree Requirement (e.g. BTS Diplômés)
+  // 9. Degree Requirement (e.g. BTS Diplômés)
   if (program.eligibilityCriteria.requiresDegree) {
     if (applicant.hasHigherEducationDegree) {
       matchedBecause.push({
@@ -132,7 +198,7 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 8. Startup Act Label
+  // 10. Startup Act Label
   if (program.eligibilityCriteria.requiresStartupLabel) {
     if (applicant.hasStartupActLabel) {
       matchedBecause.push({
@@ -153,7 +219,7 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 9. Structure preference (Islamic Finance)
+  // 11. Structure preference (Islamic Finance)
   if (applicant.structurePreference === 'islamic') {
     if (program.category === 'islamic_finance') {
       matchedBecause.push({
@@ -169,7 +235,7 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 10. Collateral / Guarantees
+  // 12. Collateral / Guarantees
   if (applicant.collateralPreference === 'none' || applicant.collateralPreference === 'limited') {
     if (program.category === 'guarantee' || program.id === 'bts_diplomes' || program.id === 'enda_microcredit_equip') {
       matchedBecause.push({
@@ -180,7 +246,7 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 11. Verification items
+  // 13. Verification items
   if (program.verification.unverifiedFields.length > 0) {
     needsVerification.push({
       fr: `Préciser auprès du chargé d'affaires: ${program.verification.unverifiedFields.join(', ')}.`,

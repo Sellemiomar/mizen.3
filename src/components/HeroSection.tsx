@@ -113,11 +113,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         detectedPurpose = 'innovation_rd';
       }
 
+      // Fallback: extract real numbers from query, never fabricate unstated numbers
+      const digitsOnly = naturalQuery.replace(/\s+/g, ' ');
+      const match = digitsOnly.match(/(\d+(?:[.,]\d+)?)\s*(?:dt|tnd|dinars?|دينار|k)?/i);
+      let detectedAmount = 0;
+      if (match) {
+        const raw = parseFloat(match[1].replace(',', '.'));
+        if (!isNaN(raw)) {
+          detectedAmount = match[0].toLowerCase().includes('k') && raw < 1000 ? raw * 1000 : raw;
+          if (detectedAmount > 0 && detectedAmount < 1000 && !match[0].toLowerCase().includes('dt')) {
+            detectedAmount *= 1000;
+          }
+        }
+      }
+
       onAiParsed({
         purpose: detectedPurpose,
-        financingRequested: 80000,
-        totalProjectCost: 100000,
-        userContribution: 20000
+        financingRequested: detectedAmount,
+        totalProjectCost: detectedAmount,
+        userContribution: 0
       });
     } finally {
       setIsParsing(false);

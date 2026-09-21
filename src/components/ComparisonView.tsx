@@ -133,19 +133,64 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
               ))}
             </tr>
 
-            {/* 3. Rate Structure */}
+            {/* 3. Rate Structure & Benchmark */}
             <tr>
               <td className="p-4 font-bold text-slate-700 bg-slate-50/50">
-                Taux d'intérêt / Marge
+                Taux d'intérêt & Origine
               </td>
-              {programs.map((p) => (
-                <td key={p.id} className="p-4 text-slate-800">
-                  <span className="font-semibold block">{p.rateDescription[language]}</span>
-                  {p.estimatedRateAnnual && (
-                    <span className="text-[11px] text-slate-500">Taux indicatif: ~{p.estimatedRateAnnual}%</span>
-                  )}
-                </td>
-              ))}
+              {programs.map((p) => {
+                const match = resultsMap.get(p.id);
+                const est = match?.costEstimate;
+                return (
+                  <td key={p.id} className="p-4 text-slate-800">
+                    <span className="font-semibold block">{p.rateDescription[language]}</span>
+                    {est?.rateOriginLabel && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                        {est.rateOriginLabel[language]}
+                      </span>
+                    )}
+                    {est?.rateBenchmarkSource && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Ref: {est.rateBenchmarkSource}
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+
+            {/* 3b. Mensualité Estimée */}
+            <tr>
+              <td className="p-4 font-bold text-slate-700 bg-slate-50/50">
+                Mensualité indicative
+              </td>
+              {programs.map((p) => {
+                const match = resultsMap.get(p.id);
+                const est = match?.costEstimate;
+                return (
+                  <td key={p.id} className="p-4 text-slate-800">
+                    {est?.canCalculateReliably && est?.monthlyPayment ? (
+                      <div>
+                        <span className="font-extrabold text-blue-900 text-sm">
+                          ~{est.monthlyPayment.toLocaleString('fr-FR')} DT/mois
+                        </span>
+                        <div className="text-[10px] text-emerald-700 font-semibold">Taux bonifié réglementé</div>
+                      </div>
+                    ) : est?.monthlyPayment ? (
+                      <div>
+                        <span className="font-bold text-slate-900 text-sm">
+                          ~{est.monthlyPayment.toLocaleString('fr-FR')} DT/mois
+                        </span>
+                        <div className="text-[10px] text-amber-700 font-medium">Simulation indicative (marge variable)</div>
+                      </div>
+                    ) : (
+                      <div className="text-amber-800 text-[11px] font-medium">
+                        Non calculable sans offre personnalisée
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
             </tr>
 
             {/* 4. Durée & Franchise */}
@@ -220,6 +265,28 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
                       {match?.reasons.potentialIssues.map((r, i) => (
                         <li key={i} className="flex items-start gap-1">
                           <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                          <span>{r[language]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
+                );
+              })}
+            </tr>
+
+            {/* 9. Points à vérifier / Données non publiées */}
+            <tr>
+              <td className="p-4 font-bold text-blue-800 bg-blue-50/30">
+                À vérifier auprès de l'organisme
+              </td>
+              {programs.map((p) => {
+                const match = resultsMap.get(p.id);
+                return (
+                  <td key={p.id} className="p-4">
+                    <ul className="space-y-1 text-[11px] text-slate-600">
+                      {match?.reasons.needsVerification.map((r, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-blue-500 font-bold">•</span>
                           <span>{r[language]}</span>
                         </li>
                       ))}

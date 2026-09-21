@@ -324,7 +324,7 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       }
     ],
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.bfpme.com.tn/fr/financement/credit-investissement',
       sourceTitle: 'BFPME - Guide officiel du crédit d’investissement PME',
       sourceType: 'bank_fiche',
@@ -332,8 +332,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       verifiedFields: ['minAmount', 'maxAmount', 'minContributionPercent', 'durationMonthsMax', 'purposes'],
       unverifiedFields: ['exactMarginOverTMM'],
       notes: {
-        fr: 'Montants et durées vérifiés d’après la fiche produit institutionnelle BFPME 2026.',
-        ar: 'تم التحقق من السقوف والآجال استناداً لدليل المنتجات الرسمي 2026.'
+        fr: 'Montants et durées vérifiés d’après la fiche institutionnelle BFPME. La marge exacte (+2,5% à +3,5% sur TMM) dépend de la décision du comité de crédit.',
+        ar: 'تم التحقق من السقوف والآجال استناداً لدليل المنتجات الرسمي. الهامش الدقيق (+2.5% إلى +3.5% فوق TMM) يحدده قرار لجنة القروض.'
       },
       lastUpdateYear: 2026
     }
@@ -566,8 +566,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         step: 3,
         title: { fr: 'Notification et signature de l’acte', ar: 'المصادقة وإتمام العقد' },
         description: {
-          fr: 'Délivrance de l’attestation de garantie permettant le déblocage du crédit.',
-          ar: 'إصدار شهادة الضمان والشروع في سحب القرض.'
+          fr: 'Délivrance de l’attestation de garantie facilitant l’accord définitif et le déblocage par la banque partenaire.',
+          ar: 'إصدار شهادة الضمان لتسهيل الموافقة النهائية وسحب القرض من البنك الشريك.'
         }
       }
     ],
@@ -927,16 +927,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       }
     ],
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.endatamweel.tn/nos-produits/',
       sourceTitle: 'Enda Tamweel - Produits de microcrédit professionnel',
       sourceType: 'official_portal',
       dateChecked: '2026-06-25',
       verifiedFields: ['minAmount', 'maxAmount', 'durationMonthsMax'],
-      unverifiedFields: [],
+      unverifiedFields: ['exactEffectiveRatePerProfile'],
       notes: {
-        fr: 'Plafond légal microfinance à 40 000 DT confirmé par la loi microfinance tunisienne.',
-        ar: 'السقف القانوني الأقصى 40 ألف دينار متطابق مع تشريعات التمويل الأصغر.'
+        fr: 'Plafond légal microfinance à 40 000 DT vérifié, mais le taux effectif global (16% à 24%) dépend de la notation interne du client et de la durée.',
+        ar: 'السقف القانوني الأقصى 40 ألف دينار متطابق مع التشريعات، لكن النسبة الفعلية (16% إلى 24%) تختلف بحسب التقييم والمدة.'
       },
       lastUpdateYear: 2026
     }
@@ -1040,16 +1040,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       }
     ],
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.banquezitouna.com/entreprises/financements/mourabaha',
       sourceTitle: 'Banque Zitouna - Mourabaha Investissement Entreprises',
       sourceType: 'bank_fiche',
       dateChecked: '2026-05-19',
       verifiedFields: ['rateType', 'purposes', 'minContributionPercent', 'durationMonthsMax'],
-      unverifiedFields: [],
+      unverifiedFields: ['exactProfitMarginRate'],
       notes: {
-        fr: 'Formule Mourabaha standard régie par les directives de la commission de contrôle Charia.',
-        ar: 'صيغة مرابحة استثمارية مطابقة لقرارات الهيئة الشرعية.'
+        fr: 'Formule Mourabaha vérifiée et conforme à la Charia. La marge bénéficiaire exacte est fixée lors de l’émission de l’offre d’achat selon la nature des équipements.',
+        ar: 'صيغة مرابحة استثمارية معتمدة شرعياً. هامش الربح النهائي يحدد عند إعداد عرض الشراء تبعاً لنوعية المعدات.'
       },
       lastUpdateYear: 2026
     }

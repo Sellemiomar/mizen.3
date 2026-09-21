@@ -36,96 +36,132 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Deterministic rule-based extraction fallback for natural language intake
+function getIntakeFallback(query: string = '', language: string = 'fr') {
+  const lower = query.toLowerCase();
+  const amountMatch = query.match(/(\d+[\d\s.,]*)\s*(dt|dinar|tnd|k\b|mille|ألف|الف|دينار|د)?/i);
+  let detectedAmount = 0;
+  if (amountMatch) {
+    const cleaned = amountMatch[1].replace(/[\s,]/g, '');
+    detectedAmount = parseFloat(cleaned) || 0;
+    if (query.includes('ألف') || query.includes('الف') || query.toLowerCase().includes('mille') || query.toLowerCase().includes('k')) {
+      if (detectedAmount < 1000) detectedAmount *= 1000;
+    }
+  }
+
+  let purpose = 'creation';
+  if (lower.includes('équipement') || lower.includes('machine') || lower.includes('outillage') || lower.includes('معدات') || lower.includes('آلات')) {
+    purpose = 'equipment';
+  } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('تسيير') || lower.includes('سيولة')) {
+    purpose = 'working_capital';
+  } else if (lower.includes('agricole') || lower.includes('فلاحة') || lower.includes('أرض')) {
+    purpose = 'agriculture';
+  } else if (lower.includes('startup') || lower.includes('innov') || lower.includes('تجديد') || lower.includes('تكنولوج')) {
+    purpose = 'innovation_rd';
+  }
+
+  let sector = 'services';
+  if (lower.includes('textile') || lower.includes('usine') || lower.includes('industr') || lower.includes('صناعة')) {
+    sector = 'industry';
+  } else if (lower.includes('agri') || lower.includes('fella') || lower.includes('فلاح')) {
+    sector = 'agriculture_agribusiness';
+  } else if (lower.includes('tech') || lower.includes('logiciel') || lower.includes('app') || lower.includes('برمجة')) {
+    sector = 'ict_tech';
+  } else if (lower.includes('artisan') || lower.includes('نجارة') || lower.includes('خياطة') || lower.includes('حرف')) {
+    sector = 'crafts_trades';
+  }
+
+  let location = 'Tunis';
+  const arabicGovMap: Record<string, string> = {
+    'سوسة': 'Sousse', 'صفاقس': 'Sfax', 'القصرين': 'Kasserine', 'سيدي بوزيد': 'Sidi Bouzid',
+    'قفصة': 'Gafsa', 'بنزرت': 'Bizerte', 'نابل': 'Nabeul', 'المنستير': 'Monastir',
+    'المهدية': 'Mahdia', 'القيروان': 'Kairouan', 'باجة': 'Béja', 'جندوبة': 'Jendouba',
+    'سليانة': 'Siliana', 'الكاف': 'Le Kef', 'مدنين': 'Médenine', 'تطاوين': 'Tataouine',
+    'قابس': 'Gabès', 'قبلي': 'Kébili', 'توزر': 'Tozeur', 'زغوان': 'Zaghouan',
+    'أريانة': 'Ariana', 'اريانة': 'Ariana', 'بن عروس': 'Ben Arous', 'منوبة': 'La Manouba', 'تونس': 'Tunis'
+  };
+
+  for (const [arName, frName] of Object.entries(arabicGovMap)) {
+    if (query.includes(arName)) {
+      location = frName;
+      break;
+    }
+  }
+
+  const knownGovs = ['Sousse', 'Sfax', 'Kasserine', 'Sidi Bouzid', 'Gafsa', 'Bizerte', 'Nabeul', 'Monastir', 'Mahdia', 'Kairouan', 'Béja', 'Jendouba', 'Siliana', 'Le Kef', 'Médenine', 'Tataouine', 'Gabès', 'Kébili', 'Tozeur', 'Zaghouan', 'Ariana', 'Ben Arous', 'La Manouba', 'Tunis'];
+  for (const gov of knownGovs) {
+    if (lower.includes(gov.toLowerCase())) {
+      location = gov;
+      break;
+    }
+  }
+
+  const missingCriticalFields: string[] = [];
+  if (detectedAmount === 0) missingCriticalFields.push('montant_financement');
+  missingCriticalFields.push('apport_personnel');
+  if (!lower.includes('textile') && !lower.includes('usine') && !lower.includes('industr') && !lower.includes('agri') && !lower.includes('tech') && !lower.includes('artisan')) {
+    missingCriticalFields.push('secteur_activite');
+  }
+
+  const summaryText = language === 'ar'
+    ? (detectedAmount > 0
+        ? `الطلب المحدد: ${detectedAmount.toLocaleString('fr-FR')} د لـ ${purpose} في ولاية ${location}. يرجى تحديد مساهمتك الذاتية.`
+        : `مشروع محدد لـ ${purpose} في ولاية ${location}. يرجى تحديد المبلغ المطلوب ومساهمتك الذاتية.`)
+    : (detectedAmount > 0
+        ? `Demande identifiée: ${detectedAmount.toLocaleString('fr-FR')} DT pour ${purpose} (${sector}) à ${location}. Veuillez préciser votre apport personnel.`
+        : `Projet identifié pour ${purpose} (${sector}) à ${location}. Veuillez préciser le montant et votre apport personnel.`);
+
+  return {
+    purpose,
+    financingRequested: detectedAmount,
+    totalProjectCost: detectedAmount,
+    userContribution: 0,
+    sector,
+    location,
+    businessStage: 'idea_project',
+    missingCriticalFields,
+    summaryText
+  };
+}
+
 /**
  * 1. Natural Language Intake
  * Extracts financing parameters from French or Arabic text
  */
 app.post('/api/gemini/parse-intake', async (req, res) => {
+  const { query, language = 'fr' } = req.body;
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'Query text is required' });
+  }
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    return res.json({
+      success: true,
+      source: 'fallback_heuristic',
+      extracted: getIntakeFallback(query, language)
+    });
+  }
+
   try {
-    const { query, language = 'fr' } = req.body;
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({ error: 'Query text is required' });
-    }
-
-    const ai = getGeminiClient();
-    if (!ai) {
-      // Deterministic rule-based extraction fallback if Gemini API is unconfigured
-      const lower = query.toLowerCase();
-      const amountMatch = query.match(/(\d+[\d\s.,]*)\s*(dt|dinar|tnd|k\b|mille)/i);
-      let detectedAmount = 0;
-      if (amountMatch) {
-        const cleaned = amountMatch[1].replace(/[\s,]/g, '');
-        detectedAmount = parseFloat(cleaned) || 0;
-        if (query.toLowerCase().includes('mille') || query.toLowerCase().includes('k')) {
-          if (detectedAmount < 1000) detectedAmount *= 1000;
-        }
-      }
-
-      let purpose: string = 'creation';
-      if (lower.includes('équipement') || lower.includes('machine') || lower.includes('outillage') || lower.includes('معدات') || lower.includes('آلات')) {
-        purpose = 'equipment';
-      } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('تسيير') || lower.includes('سيولة')) {
-        purpose = 'working_capital';
-      } else if (lower.includes('agricole') || lower.includes('فلاحة') || lower.includes('أرض')) {
-        purpose = 'agriculture';
-      } else if (lower.includes('startup') || lower.includes('innov') || lower.includes('تجديد') || lower.includes('تكنولوج')) {
-        purpose = 'innovation_rd';
-      }
-
-      let sector: string = 'services';
-      if (lower.includes('textile') || lower.includes('usine') || lower.includes('industr') || lower.includes('صناعة')) {
-        sector = 'industry';
-      } else if (lower.includes('agri') || lower.includes('fella') || lower.includes('فلاح')) {
-        sector = 'agriculture_agribusiness';
-      } else if (lower.includes('tech') || lower.includes('logiciel') || lower.includes('app') || lower.includes('برمجة')) {
-        sector = 'ict_tech';
-      } else if (lower.includes('artisan') || lower.includes('نجارة') || lower.includes('خياطة') || lower.includes('حرف')) {
-        sector = 'crafts_trades';
-      }
-
-      let location = 'Tunis';
-      const knownGovs = ['Sousse', 'Sfax', 'Kasserine', 'Sidi Bouzid', 'Gafsa', 'Bizerte', 'Nabeul', 'Monastir', 'Mahdia', 'Kairouan', 'Béja', 'Jendouba', 'Siliana', 'Le Kef', 'Médenine', 'Tataouine', 'Gabès', 'Kébili', 'Tozeur', 'Zaghouan', 'Ariana', 'Ben Arous', 'La Manouba'];
-      for (const gov of knownGovs) {
-        if (lower.includes(gov.toLowerCase())) {
-          location = gov;
-          break;
-        }
-      }
-
-      return res.json({
-        success: true,
-        source: 'fallback_heuristic',
-        extracted: {
-          purpose,
-          financingRequested: detectedAmount > 0 ? detectedAmount : 50000,
-          totalProjectCost: detectedAmount > 0 ? Math.round(detectedAmount * 1.25) : 65000,
-          userContribution: detectedAmount > 0 ? Math.round(detectedAmount * 0.25) : 15000,
-          sector,
-          location,
-          businessStage: 'idea_project',
-          summary: `Demande identifiée: ${purpose} dans le secteur ${sector} à ${location}.`
-        }
-      });
-    }
-
     // Call Gemini with schema
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
-      contents: `You are Mizen's financial intake engine in Tunisia. 
+      contents: `You are Mizen's financial intake engine for Tunisian SME & entrepreneur financing.
 Analyze the user's natural language request describing their financing project in Tunisia.
 User input: "${query}"
 
-Extract all verifiable parameters.
-Rules:
-- financingRequested: numerical amount in Tunisian Dinars (TND / DT). If user writes 80 000 DT, extract 80000. If user says "80k", extract 80000.
-- totalProjectCost: if specified, else calculate as financingRequested / 0.8 if sensible, or equal.
-- userContribution: if mentioned or calculate totalProjectCost - financingRequested.
+Strict extraction discipline:
+- Extract ONLY what the user explicitly stated or directly implied. NEVER fabricate unstated numbers.
+- financingRequested: numerical amount in Tunisian Dinars (TND / DT). If user writes 80 000 DT, extract 80000. If 80k, extract 80000. If not mentioned, set to 0.
+- totalProjectCost: extract ONLY if stated. If not stated, set equal to financingRequested.
+- userContribution: extract ONLY if stated. If NOT stated, set to 0 and add "apport_personnel" to missingCriticalFields.
 - purpose: one of ['creation', 'equipment', 'working_capital', 'expansion', 'agriculture', 'innovation_rd', 'export'].
-- sector: one of ['industry', 'services', 'agriculture_agribusiness', 'ict_tech', 'crafts_trades', 'commerce', 'renewable_energy', 'tourism', 'other'].
-- location: exact Tunisian governorate if identifiable (e.g. Sousse, Tunis, Sfax, Kasserine, etc.), or null.
+- sector: one of ['industry', 'services', 'agriculture_agribusiness', 'ict_tech', 'crafts_trades', 'commerce', 'renewable_energy', 'tourism', 'other']. If unclear, add "secteur_activite" to missingCriticalFields.
+- location: exact Tunisian governorate if identifiable (e.g. Sousse, Tunis, Sfax, Kasserine, etc.), or empty string "" if not mentioned. If unmentioned, add "gouvernorat" to missingCriticalFields.
 - businessStage: one of ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'].
-- missingCriticalFields: array of strings listing what is still needed (e.g. 'apport_personnel', 'diplome', 'forme_juridique').
-- summaryText: short friendly confirmation in ${language === 'ar' ? 'Arabic' : 'French'}.`,
+- missingCriticalFields: array of strings explicitly listing what is missing from the user's description to evaluate eligibility (e.g., 'apport_personnel', 'diplome_universitaire', 'garanties_disponibles', 'forme_juridique').
+- summaryText: objective 1-2 sentence confirmation of detected parameters in ${language === 'ar' ? 'Arabic' : 'French'}, noting what still needs to be specified.`,
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -144,7 +180,7 @@ Rules:
             },
             summaryText: { type: Type.STRING }
           },
-          required: ['financingRequested', 'purpose', 'sector', 'summaryText']
+          required: ['financingRequested', 'purpose', 'sector', 'missingCriticalFields', 'summaryText']
         }
       }
     });
@@ -156,8 +192,12 @@ Rules:
       extracted: parsed
     });
   } catch (error) {
-    console.error('Gemini parse error:', error);
-    res.status(500).json({ error: 'Failed to parse natural language request', details: String(error) });
+    console.warn('Gemini parse error, recovering with deterministic fallback:', error);
+    return res.json({
+      success: true,
+      source: 'fallback_heuristic',
+      extracted: getIntakeFallback(query, language)
+    });
   }
 });
 
@@ -203,8 +243,15 @@ Keep tone objective, encouraging, and anchored in Tunisian realities (TMM, SOTUG
       explanation: response.text
     });
   } catch (err) {
-    console.error('Gemini explain error:', err);
-    res.status(500).json({ error: 'Failed to generate explanation', details: String(err) });
+    console.warn('Gemini explain error, returning fallback:', err);
+    const { programName = '', providerName = '', language = 'fr' } = req.body || {};
+    return res.json({
+      success: true,
+      source: 'fallback',
+      explanation: language === 'ar'
+        ? `تم تحديد ${programName} كخيار ملائم لتمويل مشروعكم لدى ${providerName}. يُنصح بإعداد دراسة الجدوى وتجهيز الفواتير التقديرية قبل موعد مقابلة مسؤول التمويل.`
+        : `Le dispositif ${programName} auprès de ${providerName} présente des conditions adaptées à votre profil. Veillez à bien formaliser vos devis pro-forma et votre prévisionnel financier avant l'entretien en agence.`
+    });
   }
 });
 
@@ -222,16 +269,28 @@ app.post('/api/gemini/analyze-document', async (req, res) => {
         success: true,
         source: 'fallback',
         analysis: {
-          identifiedFields: [
-            { key: 'coût_projet', label: 'Coût du projet', extractedValue: 'Détecté dans le document', status: 'matches_profile' },
-            { key: 'forme_juridique', label: 'Forme juridique', extractedValue: 'À vérifier avec le RNE', status: 'neutral' }
-          ],
+          identifiedFields: language === 'ar'
+            ? [
+                { key: 'coût_projet', label: 'كلفة المشروع', extractedValue: 'محددة في الوثيقة', status: 'matches_profile' },
+                { key: 'forme_juridique', label: 'الشكل القانوني', extractedValue: 'للتثبت عبر السجل الوطني', status: 'neutral' }
+              ]
+            : [
+                { key: 'coût_projet', label: 'Coût du projet', extractedValue: 'Détecté dans le document', status: 'matches_profile' },
+                { key: 'forme_juridique', label: 'Forme juridique', extractedValue: 'À vérifier avec le RNE', status: 'neutral' }
+              ],
           contradictions: [],
-          missingMandatoryDocs: ['Extrait RNE récent (- de 3 mois)', 'Attestation de non-faillite', 'Factures proforma signées'],
-          recommendations: [
-            'Assurez-vous que les montants des devis correspondent exactement au montant du prêt demandé.',
-            'Vérifiez la concordance entre la raison sociale et l’objet statutaire au RNE.'
-          ]
+          missingMandatoryDocs: language === 'ar'
+            ? ['مضمون حديث من السجل الوطني للمؤسسات (أقل من 3 أشهر)', 'شهادة في عدم التفليس أو التسوية القضائية', 'فواتير تقديرية مؤشر عليها']
+            : ['Extrait RNE récent (- de 3 mois)', 'Attestation de non-faillite', 'Factures proforma signées'],
+          recommendations: language === 'ar'
+            ? [
+                'تأكد من تطابق المبالغ المذكورة في الفواتير التقديرية بدقة مع مبلغ التمويل المطلوب.',
+                'تحقق من تطابق التسمية الاجتماعية وموضوع النشاط المسجل بالسجل الوطني للمؤسسات.'
+              ]
+            : [
+                'Assurez-vous que les montants des devis correspondent exactement au montant du prêt demandé.',
+                'Vérifiez la concordance entre la raison sociale et l’objet statutaire au RNE.'
+              ]
         }
       });
     }
@@ -303,8 +362,36 @@ Task:
       analysis: parsed
     });
   } catch (err) {
-    console.error('Gemini analyze-document error:', err);
-    res.status(500).json({ error: 'Failed to analyze document', details: String(err) });
+    console.warn('Gemini analyze-document error, returning fallback:', err);
+    const { language = 'fr' } = req.body || {};
+    return res.json({
+      success: true,
+      source: 'fallback',
+      analysis: {
+        identifiedFields: language === 'ar'
+          ? [
+              { key: 'coût_projet', label: 'كلفة المشروع', extractedValue: 'محددة في الوثيقة', status: 'matches_profile' },
+              { key: 'forme_juridique', label: 'الشكل القانوني', extractedValue: 'للتثبت عبر السجل الوطني', status: 'neutral' }
+            ]
+          : [
+              { key: 'coût_projet', label: 'Coût du projet', extractedValue: 'Détecté dans le document', status: 'matches_profile' },
+              { key: 'forme_juridique', label: 'Forme juridique', extractedValue: 'À vérifier avec le RNE', status: 'neutral' }
+            ],
+        contradictions: [],
+        missingMandatoryDocs: language === 'ar'
+          ? ['مضمون حديث من السجل الوطني للمؤسسات (أقل من 3 أشهر)', 'شهادة في عدم التفليس أو التسوية القضائية', 'فواتير تقديرية مؤشر عليها']
+          : ['Extrait RNE récent (- de 3 mois)', 'Attestation de non-faillite', 'Factures proforma signées'],
+        recommendations: language === 'ar'
+          ? [
+              'تأكد من تطابق المبالغ المذكورة في الفواتير التقديرية بدقة مع مبلغ التمويل المطلوب.',
+              'تحقق من تطابق التسمية الاجتماعية وموضوع النشاط المسجل بالسجل الوطني للمؤسسات.'
+            ]
+          : [
+              'Assurez-vous que les montants des devis correspondent exactement au montant du prêt demandé.',
+              'Vérifiez la concordance entre la raison sociale et l’objet statutaire au RNE.'
+            ]
+      }
+    });
   }
 });
 
@@ -322,17 +409,32 @@ app.post('/api/gemini/dossier-advice', async (req, res) => {
         source: 'fallback',
         advice: {
           readinessScore: 75,
-          checklist: [
-            'Vérifier la validité des devis pro-forma (durée de validité min 60 jours)',
-            'Préparer le plan de trésorerie mensuel sur les 12 premiers mois',
-            'Rassembler les pièces d’identité et justificatifs de qualification professionnelle',
-            'Solliciter la SOTUGAR ou la BFPME pour le cadrage du dossier d’investissement'
-          ],
-          questionsForOfficer: [
-            'Quelle est la quotité d’intervention maximale de la SOTUGAR sur notre secteur ?',
-            'Quel est le délai moyen actuel entre la décision du comité et le premier décaissement ?',
-            'Existe-t-il des conventions sectorielles réduisant la marge sur TMM ?'
-          ]
+          checklist: language === 'ar'
+            ? [
+                'التأكد من صلاحية الفواتير التقديرية (صالحة لمدة لا تقل عن 60 يوماً)',
+                'إعداد مخطط السيولة والتدفقات النقدية للأشهر الـ 12 الأولى',
+                'جمع بطاقات الهوية وشهادات الكفاءة المهنية أو الجامعية',
+                'مراجعة شروط تدخل الشركة التونسية للضمان (SOTUGAR) أو بنك تمويل المؤسسات (BFPME)'
+              ]
+            : [
+                'Vérifier la validité des devis pro-forma (durée de validité min 60 jours)',
+                'Préparer le plan de trésorerie mensuel sur les 12 premiers mois',
+                'Rassembler les pièces d’identité et justificatifs de qualification professionnelle',
+                'Solliciter la SOTUGAR ou la BFPME pour le cadrage du dossier d’investissement'
+              ],
+          questionsForOfficer: language === 'ar'
+            ? [
+                'ما هي نسبة التغطية القصوى للضمان العمومي سوتوغار في قطاعنا ؟',
+                'كم يستغرق متوسط الأجل بين موافقة لجنة التمويل وأول صرف للأموال ؟',
+                'هل توجد اتفاقيات قطاعية تفاضلية تخفض من هامش الفائدة فوق نسبة TMM ؟',
+                'ما هي متطلبات فترة الإمهال (différé) المناسبة لمرحلة انطلاق المشروع ؟'
+              ]
+            : [
+                'Quelle est la quotité d’intervention maximale de la SOTUGAR sur notre secteur ?',
+                'Quel est le délai moyen actuel entre la décision du comité et le premier décaissement ?',
+                'Existe-t-il des conventions sectorielles réduisant la marge sur TMM ?',
+                'Quelles sont les conditions d’octroi du différé d’amortissement ?'
+              ]
         }
       });
     }
@@ -374,8 +476,41 @@ Generate a concise, high-impact preparation guide in ${language === 'ar' ? 'Arab
       advice: JSON.parse(response.text || '{}')
     });
   } catch (err) {
-    console.error('Gemini dossier-advice error:', err);
-    res.status(500).json({ error: 'Failed to generate dossier advice', details: String(err) });
+    console.warn('Gemini dossier-advice error, returning fallback:', err);
+    const { language = 'fr' } = req.body || {};
+    return res.json({
+      success: true,
+      source: 'fallback',
+      advice: {
+        readinessScore: 75,
+        checklist: language === 'ar'
+          ? [
+              'التأكد من صلاحية الفواتير التقديرية (صالحة لمدة لا تقل عن 60 يوماً)',
+              'إعداد مخطط السيولة والتدفقات النقدية للأشهر الـ 12 الأولى',
+              'جمع بطاقات الهوية وشهادات الكفاءة المهنية أو الجامعية',
+              'مراجعة شروط تدخل الشركة التونسية للضمان (SOTUGAR) أو بنك تمويل المؤسسات (BFPME)'
+            ]
+          : [
+              'Vérifier la validité des devis pro-forma (durée de validité min 60 jours)',
+              'Préparer le plan de trésorerie mensuel sur les 12 premiers mois',
+              'Rassembler les pièces d’identité et justificatifs de qualification professionnelle',
+              'Solliciter la SOTUGAR ou la BFPME pour le cadrage du dossier d’investissement'
+            ],
+        questionsForOfficer: language === 'ar'
+          ? [
+              'ما هي نسبة التغطية القصوى للضمان العمومي سوتوغار في قطاعنا ؟',
+              'كم يستغرق متوسط الأجل بين موافقة لجنة التمويل وأول صرف للأموال ؟',
+              'هل توجد اتفاقيات قطاعية تفاضلية تخفض من هامش الفائدة فوق نسبة TMM ؟',
+              'ما هي متطلبات فترة الإمهال (différé) المناسبة لمرحلة انطلاق المشروع ؟'
+            ]
+          : [
+              'Quelle est la quotité d’intervention maximale de la SOTUGAR sur notre secteur ?',
+              'Quel est le délai moyen actuel entre la décision du comité et le premier décaissement ?',
+              'Existe-t-il des conventions sectorielles réduisant la marge sur TMM ?',
+              'Quelles sont les conditions d’octroi du différé d’amortissement ?'
+            ]
+      }
+    });
   }
 });
 

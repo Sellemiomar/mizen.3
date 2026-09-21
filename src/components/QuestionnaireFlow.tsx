@@ -448,6 +448,36 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 />
               </div>
 
+              {/* Applicant Age (Optional) */}
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
+                  {language === 'ar' ? 'عمر الباعث (اختياري - للبرامج الموجهة للشباب)' : 'Âge du porteur de projet (optionnel)'}
+                </label>
+                <div className="relative">
+                  <input
+                    id="input-applicant-age"
+                    type="number"
+                    min="18"
+                    max="80"
+                    value={profile.applicantAge || ''}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setProfile(prev => ({ ...prev, applicantAge: isNaN(val) ? undefined : val }));
+                    }}
+                    placeholder={language === 'ar' ? 'مثال: 32 سنة' : 'Ex: 32 ans'}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-slate-900 font-medium outline-hidden bg-white"
+                  />
+                  <span className="absolute right-4 rtl:left-4 rtl:right-auto top-3.5 text-xs text-slate-400">
+                    {language === 'ar' ? 'سنة' : 'ans'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  {language === 'ar'
+                    ? 'بعض آليات التمويل (مثل BTS أو ANETI) تضع سقفاً للأعمار كشرط للأهلية.'
+                    : 'Permet de vérifier les critères spécifiques des dispositifs réservés aux jeunes diplômés (BTS, ANETI).'}
+                </span>
+              </div>
+
               {/* Guarantees preference */}
               <div>
                 <label className="block text-sm font-bold text-slate-800 mb-1.5">

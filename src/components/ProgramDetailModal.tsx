@@ -100,11 +100,72 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
         {/* Modal Scrollable Body */}
         <div className="p-6 sm:p-8 overflow-y-auto space-y-8">
           {/* Verification & Provenance Banner */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <VerificationBadge verification={program.verification} language={language} showSourceLink />
-            <span className="text-xs text-slate-500 font-mono">
-              Réf: {program.id} • {provider.headquarters}
-            </span>
+          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+              <VerificationBadge verification={program.verification} language={language} showSourceLink />
+              <span className="text-xs text-slate-500 font-mono">
+                Réf: {program.id} • {provider.headquarters}
+              </span>
+            </div>
+
+            {/* Source Information */}
+            <div className="text-xs text-slate-700 flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-900">
+                {language === 'ar' ? 'المصدر المرجعي :' : 'Source de vérification :'}
+              </span>
+              <span>{program.verification.sourceTitle}</span>
+              {program.verification.sourceUrl && (
+                <a
+                  href={program.verification.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-700 hover:text-blue-900 inline-flex items-center gap-1 font-medium underline"
+                >
+                  <span>{language === 'ar' ? 'الرابط الرسمي' : 'Consulter le portail'}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+
+            {/* Notes */}
+            {program.verification.notes && (
+              <p className="text-xs text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200/70 leading-relaxed">
+                {program.verification.notes[language]}
+              </p>
+            )}
+
+            {/* Verified vs Unverified Fields Breakdown */}
+            <div className="pt-1 flex flex-wrap gap-4 text-xs">
+              {program.verification.verifiedFields.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">
+                    {language === 'ar' ? 'معايير رسمية مؤكدة' : 'Données certifiées conformes :'}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {program.verification.verifiedFields.map(f => (
+                      <span key={f} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium">
+                        ✓ {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {program.verification.unverifiedFields.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
+                    {language === 'ar' ? 'نقاط متغيرة تخضع للجنة التمويل' : 'Variables soumises au comité de crédit :'}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {program.verification.unverifiedFields.map(f => (
+                      <span key={f} className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium">
+                        ⚠ {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Key Parameters 4-Grid */}

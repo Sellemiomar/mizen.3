@@ -71,15 +71,15 @@ export const Footer: React.FC<FooterProps> = ({ language }) => {
             <ul className="space-y-2 text-slate-400">
               <li className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span>Sources officielles vérifiées</span>
+                <span>{language === 'ar' ? 'مصادر رسمية موثقة وقانونية' : 'Sources officielles vérifiées'}</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                <span>Calculs financiers sans frais cachés</span>
+                <span>{language === 'ar' ? 'احتساب مالي واضح دون فوائد مخفية' : 'Calculs financiers sans frais cachés'}</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span>Aucune promesse d’approbation fictive</span>
+                <span>{language === 'ar' ? 'لا نقدم وعوداً وهمية بالموافقة' : 'Aucune promesse d’approbation fictive'}</span>
               </li>
             </ul>
           </div>
@@ -93,10 +93,12 @@ export const Footer: React.FC<FooterProps> = ({ language }) => {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-400 text-xs">
           <div>
-            © {new Date().getFullYear()} Mizen Tunisia. Tous droits réservés.
+            {language === 'ar'
+              ? `© ${new Date().getFullYear()} ميزان تونس. جميع الحقوق محفوظة.`
+              : `© ${new Date().getFullYear()} Mizen Tunisia. Tous droits réservés.`}
           </div>
           <div className="flex items-center gap-3">
-            <span>Made for Tunisian Entrepreneurs 🇹🇳</span>
+            <span>{language === 'ar' ? 'مخصص للباعثين وأصحاب المشاريع في تونس 🇹🇳' : 'Conçu pour les entrepreneurs tunisiens 🇹🇳'}</span>
           </div>
         </div>
       </div>

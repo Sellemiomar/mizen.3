@@ -283,8 +283,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
                 {/* Financial Calculation Simulation Box */}
                 {costEstimate && (
-                  <div className="mt-4 p-3.5 rounded-xl border border-slate-200 bg-blue-50/40 text-xs">
-                    <div className="flex items-center justify-between mb-1.5">
+                  <div className="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50/80 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/70">
                       <div className="flex items-center gap-1.5 font-bold text-slate-900">
                         <Calculator className="w-4 h-4 text-blue-700" />
                         <span>{t.estMonthlyPayment} :</span>
@@ -292,18 +292,63 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                           <span className="text-blue-900 text-sm font-extrabold">
                             ~{costEstimate.monthlyPayment.toLocaleString('fr-FR')} DT/mois
                           </span>
+                        ) : costEstimate.monthlyPayment ? (
+                          <span className="text-slate-800 text-sm font-bold">
+                            ~{costEstimate.monthlyPayment.toLocaleString('fr-FR')} DT/mois
+                            <span className="text-amber-800 text-[11px] font-normal ml-1">
+                              ({language === 'ar' ? 'تقديري مشروط' : 'indicatif'})
+                            </span>
+                          </span>
                         ) : (
-                          <span className="text-amber-800 font-medium">
+                          <span className="text-amber-800 font-semibold">
                             {t.cannotCalculateReliably}
                           </span>
                         )}
                       </div>
-                      <TrustBadge type="calculated" language={language} subtle />
+
+                      <div className="flex items-center gap-2">
+                        {costEstimate.rateOriginLabel && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700">
+                            {costEstimate.rateOriginLabel[language]}
+                          </span>
+                        )}
+                        <TrustBadge type="calculated" language={language} subtle />
+                      </div>
                     </div>
+
+                    {costEstimate.rateBenchmarkSource && (
+                      <div className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-700">
+                          {language === 'ar' ? 'المرجع المعتمد :' : 'Référence de calcul :'}
+                        </span>
+                        <span>{costEstimate.rateBenchmarkSource}</span>
+                        {costEstimate.rateBenchmarkDate && (
+                          <span className="text-slate-400">({costEstimate.rateBenchmarkDate})</span>
+                        )}
+                      </div>
+                    )}
 
                     <p className="text-slate-600 leading-relaxed text-[11px]">
                       {costEstimate.calculationExplanation[language]}
                     </p>
+
+                    {costEstimate.unreliableReason && (
+                      <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                        <span>{costEstimate.unreliableReason[language]}</span>
+                      </div>
+                    )}
+
+                    {costEstimate.totalCostOfFinancing !== undefined && costEstimate.totalCostOfFinancing > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-200/60 flex flex-wrap items-center justify-between text-[11px] text-slate-600">
+                        <span>
+                          {language === 'ar' ? 'الكلفة الإجمالية التقديرية للتمويل :' : 'Coût global estimé du financement :'}
+                        </span>
+                        <span className="font-bold text-slate-800">
+                          ~{costEstimate.totalCostOfFinancing.toLocaleString('fr-FR')} DT
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 

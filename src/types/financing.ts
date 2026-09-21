@@ -235,8 +235,23 @@ export interface MatchReason {
   eligibilityLevel: 'high' | 'moderate' | 'potential_blockers';
 }
 
+export type RateOrigin = 
+  | 'official_current_benchmark' // e.g. BCT TMM benchmark
+  | 'subsidized_fixed_decree'   // e.g. BTS subsidized rate
+  | 'user_provided'             // user entered rate
+  | 'estimated_market_spread'   // e.g. TMM + bank margin assumption
+  | 'interest_free_grant'       // e.g. 0% for subsidies
+  | 'unavailable';              // Rate cannot be reliably determined
+
 export interface CostEstimate {
   canCalculateReliably: boolean;
+  rateOrigin?: RateOrigin;
+  rateOriginLabel?: {
+    fr: string;
+    ar: string;
+  };
+  rateBenchmarkSource?: string;
+  rateBenchmarkDate?: string;
   monthlyPayment?: number;
   totalRepayment?: number;
   totalCostOfFinancing?: number;
