@@ -30,7 +30,8 @@ export const CURRENT_TUNISIAN_TMM_PERCENT = TUNISIAN_TMM_BENCHMARK.rate;
 export function calculateFinancingCost(
   financingRequested: number,
   program: FinancingProgram,
-  preferredDurationMonths?: number
+  preferredDurationMonths?: number,
+  userProvidedRate?: number
 ): CostEstimate {
   // If amount requested is zero or negative
   if (financingRequested <= 0) {
@@ -48,6 +49,41 @@ export function calculateFinancingCost(
       unreliableReason: {
         fr: 'Veuillez préciser le montant souhaité pour simuler l’échéancier.',
         ar: 'يرجى تحديد المبلغ المطلوب لاحتساب جدول السداد.'
+      }
+    };
+  }
+
+  // If user provided a verified quote/rate they received
+  if (userProvidedRate !== undefined && userProvidedRate > 0) {
+    const duration = preferredDurationMonths 
+      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
+      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+
+    const monthlyRate = userProvidedRate / 100 / 12;
+    const n = duration;
+    const monthlyPayment = Math.round(
+      (financingRequested * monthlyRate * Math.pow(1 + monthlyRate, n)) /
+      (Math.pow(1 + monthlyRate, n) - 1)
+    );
+    const totalRepayment = Math.round(monthlyPayment * n);
+    const totalCostOfFinancing = totalRepayment - financingRequested;
+
+    return {
+      canCalculateReliably: true,
+      rateOrigin: 'user_provided',
+      rateOriginLabel: {
+        fr: `Taux personnalisé renseigné par l'utilisateur (${userProvidedRate}%)`,
+        ar: `نسبة خاصة مصرح بها من المستخدم (${userProvidedRate}%)`
+      },
+      monthlyPayment,
+      totalRepayment,
+      totalCostOfFinancing,
+      assumedRatePercent: userProvidedRate,
+      durationMonths: duration,
+      gracePeriodMonths: program.gracePeriodMonthsMin,
+      calculationExplanation: {
+        fr: `Simulation basée sur le taux fourni par l'utilisateur (${userProvidedRate}% l'an) sur ${duration} mois.`,
+        ar: `محاكاة مبنية على النسبة المصرح بها من المستخدم (${userProvidedRate}% سنوياً) على ${duration} شهراً.`
       }
     };
   }
@@ -74,7 +110,7 @@ export function calculateFinancingCost(
     };
   }
 
-  // 2. Pure Guarantee Mechanism (SOTUGAR) - Not a direct loan
+  // 2. Pure Guarantee Mechanism (SOTUGAR) - Commission réglementée
   if (program.category === 'guarantee') {
     const commissionAnnual = program.estimatedRateAnnual ?? 0.75;
     const durationMonths = preferredDurationMonths 
@@ -92,142 +128,131 @@ export function calculateFinancingCost(
       },
       rateBenchmarkSource: 'SOTUGAR / Ministère des Finances',
       rateBenchmarkDate: 'Barème réglementaire officiel 2026',
-      monthlyPayment: undefined, // Not a monthly loan installment
+      monthlyPayment: undefined, // Not a monthly installment loan
       totalRepayment: undefined,
       totalCostOfFinancing: totalGuaranteeFee,
       assumedRatePercent: commissionAnnual,
       durationMonths,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Commission de garantie publique de ${commissionAnnual}% l'an sur ${years} ans (~${totalGuaranteeFee.toLocaleString('fr-FR')} DT au total). Attention : ce montant s'ajoute aux intérêts et amortissements du prêt bancaire garanti.`,
+        fr: `Commission de garantie publique légale de ${commissionAnnual}% l'an sur ${years} ans (~${totalGuaranteeFee.toLocaleString('fr-FR')} DT au total). Attention : cette commission s'ajoute aux intérêts et amortissements du prêt bancaire garanti.`,
         ar: `عمولة ضمان عمومي بنسبة ${commissionAnnual}% سنوياً على ${years} سنوات (~${totalGuaranteeFee.toLocaleString('fr-FR')} د إجمالاً). تنبيه: هذا المبلغ يضاف لفوائد وأصل القرض البنكي المضمون.`
       }
     };
   }
 
   // 3. Variable rates indexed to BCT TMM (e.g. BFPME, Commercial Banks)
+  // Shows sensitivity range (TMM + 2.5% to TMM + 3.5%) rather than a single fake-precise number
   if (program.rateType === 'variable_tmm') {
-    const assumedRate = program.estimatedRateAnnual ?? (CURRENT_TUNISIAN_TMM_PERCENT + 2.5);
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
       : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
 
-    const monthlyRate = assumedRate / 100 / 12;
+    const minSpread = 2.5;
+    const maxSpread = 3.5;
+    const lowRate = CURRENT_TUNISIAN_TMM_PERCENT + minSpread;  // ~10.49%
+    const highRate = CURRENT_TUNISIAN_TMM_PERCENT + maxSpread; // ~11.49%
+
+    const monthlyRateLow = lowRate / 100 / 12;
+    const monthlyRateHigh = highRate / 100 / 12;
     const n = duration;
-    // Standard annuity formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]
-    const monthlyPayment = Math.round(
-      (financingRequested * monthlyRate * Math.pow(1 + monthlyRate, n)) /
-      (Math.pow(1 + monthlyRate, n) - 1)
+
+    const monthlyLow = Math.round(
+      (financingRequested * monthlyRateLow * Math.pow(1 + monthlyRateLow, n)) /
+      (Math.pow(1 + monthlyRateLow, n) - 1)
     );
-    const totalRepayment = Math.round(monthlyPayment * n);
-    const totalCostOfFinancing = totalRepayment - financingRequested;
-    const spreadOverTmm = (assumedRate - CURRENT_TUNISIAN_TMM_PERCENT).toFixed(2);
+    const monthlyHigh = Math.round(
+      (financingRequested * monthlyRateHigh * Math.pow(1 + monthlyRateHigh, n)) /
+      (Math.pow(1 + monthlyRateHigh, n) - 1)
+    );
 
     return {
-      canCalculateReliably: false, // Variable TMM cannot be reliably fixed upfront
+      canCalculateReliably: false, // Variable TMM cannot be reliably fixed upfront as a quote
       rateOrigin: 'estimated_market_spread',
       rateOriginLabel: {
-        fr: `TMM BCT (${CURRENT_TUNISIAN_TMM_PERCENT}%) + Marge bancaire estimée (+${spreadOverTmm}%)`,
-        ar: `TMM البنك المركزي (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش تقديري (+${spreadOverTmm}%)`
+        fr: `Formule TMM BCT (${CURRENT_TUNISIAN_TMM_PERCENT}%) + Marge (${minSpread}% à ${maxSpread}%)`,
+        ar: `صيغة TMM البنك المركزي (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش (${minSpread}% إلى ${maxSpread}%)`
       },
       rateBenchmarkSource: TUNISIAN_TMM_BENCHMARK.name,
-      rateBenchmarkDate: TUNISIAN_TMM_BENCHMARK.referencePeriod,
-      monthlyPayment,
-      totalRepayment,
-      totalCostOfFinancing,
-      assumedRatePercent: assumedRate,
+      rateBenchmarkDate: `${TUNISIAN_TMM_BENCHMARK.referencePeriod} (TMM BCT actif : ${CURRENT_TUNISIAN_TMM_PERCENT}%)`,
+      monthlyPayment: undefined, // No single fake-precise quote
+      totalRepayment: undefined,
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Simulation purement indicative : mensualité d'environ ${monthlyPayment.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Hypothèse : TMM BCT de ${CURRENT_TUNISIAN_TMM_PERCENT}% + marge estimée de ${spreadOverTmm}%.`,
-        ar: `محاكاة استئناسية : قسط يقارب ${monthlyPayment.toLocaleString('fr-FR')} د/شهرياً على ${duration} شهراً. الفرضية : TMM بنسبة ${CURRENT_TUNISIAN_TMM_PERCENT}% + هامش بنكي مقدر بـ ${spreadOverTmm}%.`
+        fr: `Fourchette de sensibilité indicative : environ ${monthlyLow.toLocaleString('fr-FR')} DT à ${monthlyHigh.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Formule réglementaire : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + marge bancaire négociée (+${minSpread}% à +${maxSpread}%).`,
+        ar: `نطاق تقديري استئناسي : بين ${monthlyLow.toLocaleString('fr-FR')} د و ${monthlyHigh.toLocaleString('fr-FR')} د شهرياً على ${duration} شهراً. الصيغة القانونية : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش بنكي (+${minSpread}% إلى +${maxSpread}%).`
       },
       unreliableReason: {
-        fr: 'Taux indexé sur le TMM de la Banque Centrale de Tunisie : la marge exacte (+2,5% à +3,5%) et les frais de dossier dépendent exclusivement de la décision finale du comité de crédit.',
-        ar: 'النسبة متغيرة ومرتبطة بـ TMM البنك المركزي : الهامش الفعلي (+2.5% إلى +3.5%) ومصاريف الملف يحددهما البنك بعد موافقة لجنة التمويل.'
+        fr: 'Taux indexé sur le TMM de la Banque Centrale de Tunisie : la marge exacte et les frais de dossier dépendent exclusivement de la décision finale du comité de crédit.',
+        ar: 'النسبة متغيرة ومرتبطة بـ TMM البنك المركزي : الهامش الفعلي ومصاريف الملف يحددهما البنك بعد موافقة لجنة التمويل.'
       }
     };
   }
 
   // 4. Microcredit with variable/tier rates (e.g. Enda Tamweel: 16%-24%)
+  // DO NOT use an arbitrary default such as 18% to create a seemingly precise repayment quote.
   if (program.category === 'microcredit') {
-    const rateAnnual = program.estimatedRateAnnual ?? 18.0;
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
       : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
 
-    const monthlyRate = rateAnnual / 100 / 12;
-    const n = duration;
-    const monthlyPayment = Math.round(
-      (financingRequested * monthlyRate * Math.pow(1 + monthlyRate, n)) /
-      (Math.pow(1 + monthlyRate, n) - 1)
-    );
-    const totalRepayment = Math.round(monthlyPayment * n);
-    const totalCostOfFinancing = totalRepayment - financingRequested;
-
     return {
       canCalculateReliably: false,
-      rateOrigin: 'estimated_market_spread',
+      rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: 'Taux effectif global microfinance (indicatif)',
-        ar: 'نسبة تمويل أصغر شاملة (استئناسية)'
+        fr: 'Fourchette microfinance variable (TEG ~16% à 24%)',
+        ar: 'نطاق تمويل أصغر متغير (نسبة شاملة ~16% إلى 24%)'
       },
-      monthlyPayment,
-      totalRepayment,
-      totalCostOfFinancing,
-      assumedRatePercent: rateAnnual,
+      monthlyPayment: undefined, // NO single fake-precise number
+      totalRepayment: undefined,
+      totalCostOfFinancing: undefined,
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Estimation indicative : mensualité d'environ ${monthlyPayment.toLocaleString('fr-FR')} DT/mois sur ${duration} mois (taux effectif global estimé à ${rateAnnual}%).`,
-        ar: `محاكاة تقديرية : قسط يقارب ${monthlyPayment.toLocaleString('fr-FR')} د/شهرياً على ${duration} شهراً (نسبة فائدة شاملة مقدرة بـ ${rateAnnual}%).`
+        fr: `Barème variable selon l'agence : le taux effectif global en microfinance s'établit généralement entre 16% et 24% l'an selon le type d'équipement, la durée et l'évaluation de proximité. Aucun devis fixe ne peut être automatisé sans étude locale.`,
+        ar: `جدول متغير حسب الفرع : يتراوح المعدل الفعلي الشامل في مؤسسات التمويل الأصغر عادة بين 16% و24% سنوياً حسب نوع المعدات والمدة ونتائج المعاينة الميدانية. لا يمكن استخراج قسط محدد دون دراسة ميدانية.`
       },
       unreliableReason: {
-        fr: 'En microfinance, le taux effectif global varie selon le montant, la durée et l’enquête de proximité de l’agent de crédit.',
-        ar: 'في مؤسسات التمويل الأصغر، تختلف النسبة الفعلية بحسب المبلغ والمدة ونتائج المعاينة الميدانية لمرشد التمويل.'
+        fr: 'Taux non disponible — simulation de remboursement impossible avec les informations vérifiées (devis d’agence requis).',
+        ar: 'النسبة غير متوفرة — يتعذر إجراء محاكاة سداد دقيقة بالمعلومات الموثقة (يتطلب عرضاً رسمياً من الفرع).'
       }
     };
   }
 
   // 5. Islamic Mourabaha (e.g. Banque Zitouna)
+  // DO NOT use an invented/default margin such as 9.5% to calculate a precise repayment.
   if (program.category === 'islamic_finance' || program.rateType === 'profit_margin') {
-    const marginRateAnnual = program.estimatedRateAnnual ?? 9.5;
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
       : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
 
-    const years = duration / 12;
-    // Mourabaha simple markup formula: Total = Principal * (1 + marginRate * years)
-    const totalProfitMargin = Math.round(financingRequested * (marginRateAnnual / 100) * years);
-    const totalRepayment = financingRequested + totalProfitMargin;
-    const monthlyPayment = Math.round(totalRepayment / duration);
-
     return {
       canCalculateReliably: false,
-      rateOrigin: 'estimated_market_spread',
+      rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: 'Marge bénéficiaire Mourabaha indicative',
-        ar: 'هامش ربح مرابحة استئناسي'
+        fr: 'Marge Mourabaha contractuelle à confirmer',
+        ar: 'هامش ربح مرابحة تعاقدي خاضع للتأكيد'
       },
-      monthlyPayment,
-      totalRepayment,
-      totalCostOfFinancing: totalProfitMargin,
-      assumedRatePercent: marginRateAnnual,
+      monthlyPayment: undefined, // NO single fake-precise quote
+      totalRepayment: undefined,
+      totalCostOfFinancing: undefined,
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Formule Mourabaha indicative : mensualité de ~${monthlyPayment.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Basée sur une marge bénéficiaire convenue estimée à ${marginRateAnnual}% l'an (prix de revient + marge fixe).`,
-        ar: `صيغة مرابحة استئناسية : قسط يقارب ${monthlyPayment.toLocaleString('fr-FR')} د/شهرياً على ${duration} شهراً. مبنية على هامش ربح متفق عليه مقدر بـ ${marginRateAnnual}% سنوياً (ثمن الشراء + هامش ربح محدد).`
+        fr: 'Marge bénéficiaire fixée par contrat Mourabaha — à confirmer auprès de la banque. En finance islamique, le prix de revente et l\'échéancier dépendent des factures pro-forma agréées par le comité de conformité.',
+        ar: 'هامش ربح محدد بموجب عقد المرابحة — رهن التأكيد من البنك. في الصيرفة الإسلامية، يتحدد ثمن البيع وجدول الأقساط بناءً على فواتير المزود المعتمدة من هيئة الرقابة الشرعية.'
       },
       unreliableReason: {
-        fr: 'La marge bénéficiaire exacte est fixée lors de l’émission du contrat de vente Mourabaha en fonction de la nature du matériel et des devis fournisseurs.',
-        ar: 'هامش الربح الفعلي يتحدد بصفة نهائية عند إبرام عقد البيع بالمرابحة تبعاً لنوعية المعدات وفواتير المزودين.'
+        fr: 'Marge bénéficiaire fixée par contrat Mourabaha — simulation de remboursement chiffrée impossible sans offre formelle de la banque.',
+        ar: 'هامش الربح يحدد بموجب عقد المرابحة — يتعذر احتساب قسط محدد دون عرض تمويل رسمي من المصرف.'
       }
     };
   }
 
   // 6. Known Subsidized Fixed Rates (e.g. BTS Diplômés 6%, FONAPRAM 5%, FOPRODI 2%)
-  if (program.estimatedRateAnnual !== undefined) {
+  // Only executed if program has an official, decree-backed subsidized fixed rate!
+  if (program.estimatedRateAnnual !== undefined && program.rateType === 'subsidized') {
     const rateAnnual = program.estimatedRateAnnual;
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
@@ -253,8 +278,8 @@ export function calculateFinancingCost(
       canCalculateReliably: true,
       rateOrigin: 'subsidized_fixed_decree',
       rateOriginLabel: {
-        fr: 'Taux bonifié réglementé par décret',
-        ar: 'نسبة تفاضلية مدعومة ومحددة بنصوص قانونية'
+        fr: `Taux bonifié réglementé par convention (${rateAnnual}%)`,
+        ar: `نسبة تفاضلية مدعومة ومحددة بنصوص قانونية (${rateAnnual}%)`
       },
       rateBenchmarkSource: 'Textes d’application & circulaires bancaires',
       monthlyPayment,
@@ -270,23 +295,23 @@ export function calculateFinancingCost(
     };
   }
 
-  // 7. Rate Unavailable — DO NOT FABRICATE A 7.0% DEFAULT
+  // 7. Rate Truly Unavailable — DO NOT FABRICATE A DEFAULT
   return {
     canCalculateReliably: false,
     rateOrigin: 'unavailable',
     rateOriginLabel: {
-      fr: 'Taux non communiqué / sur devis',
-      ar: 'النسبة غير منشورة / بناءً على الملف'
+      fr: 'Taux non disponible',
+      ar: 'النسبة غير متوفرة'
     },
     durationMonths: preferredDurationMonths ?? program.durationMonthsMin,
     gracePeriodMonths: program.gracePeriodMonthsMin,
     calculationExplanation: {
-      fr: 'Le barème exact de ce mécanisme n’est pas fixé publiquement par l’organisme et dépend de l’offre commerciale personnalisée.',
-      ar: 'جدول النسب لهذه الآلية غير محدد مسبقاً للعموم ويخضع لدراسة العرض المالي الخاص.'
+      fr: 'Taux non disponible — simulation de remboursement impossible avec les informations vérifiées.',
+      ar: 'النسبة غير متوفرة — يتعذر إجراء محاكاة سداد بالمعلومات الموثقة.'
     },
     unreliableReason: {
-      fr: 'Calcul impossible sans devis de taux officiel émis par l’établissement.',
-      ar: 'يتعذر الاحتساب دون جدول فوائد رسمي صادر عن المؤسسة المعنية.'
+      fr: 'Taux non disponible — simulation de remboursement impossible avec les informations vérifiées. Un devis officiel émis par l’établissement est requis.',
+      ar: 'النسبة غير متوفرة — يتعذر إجراء محاكاة سداد بالمعلومات الموثقة. يتطلب الأمر جدولاً رسمياً صادراً عن المؤسسة المعنية.'
     }
   };
 }

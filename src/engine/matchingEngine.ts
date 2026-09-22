@@ -14,9 +14,11 @@ export function evaluateProgramCompatibility(
   let scoreWeight = 100; // Internal ranking aid ONLY, NEVER shown as "approval probability"
 
   // 1. Amount Evaluation
-  const amount = applicant.financingRequested > 0 
+  const amount = (applicant.financingRequested && applicant.financingRequested > 0)
     ? applicant.financingRequested 
-    : (applicant.totalProjectCost - applicant.userContribution);
+    : ((applicant.totalProjectCost && applicant.totalProjectCost > 0)
+        ? (applicant.totalProjectCost - (applicant.userContribution || 0))
+        : 0);
 
   if (amount <= 0) {
     needsVerification.push({
@@ -44,7 +46,12 @@ export function evaluateProgramCompatibility(
   }
 
   // 2. Purpose Evaluation
-  if (program.purposes.includes(applicant.purpose)) {
+  if (!applicant.purpose) {
+    needsVerification.push({
+      fr: `Objet de financement non précisé : vérifier l'éligibilité des dépenses prévues pour ce mécanisme (${program.purposes.join(', ')}).`,
+      ar: `موضوع التمويل غير محدد : يرجى التأكد من أن نفقات المشروع مشمولة بهذا البرنامج (${program.purposes.join(', ')}).`
+    });
+  } else if (program.purposes.includes(applicant.purpose)) {
     matchedBecause.push({
       fr: `L'objet de financement sélectionné correspond directement aux dépenses éligibles du produit.`,
       ar: `موضوع التمويل المختار يندرج مباشرة ضمن النفقات القابلة للتمويل في هذا البرنامج.`
@@ -59,7 +66,12 @@ export function evaluateProgramCompatibility(
   }
 
   // 3. Stage & Business Age
-  if (program.eligibilityCriteria.stages.includes(applicant.businessStage)) {
+  if (!applicant.businessStage) {
+    needsVerification.push({
+      fr: `Stade d'avancement non précisé : ce programme cible en priorité (${program.eligibilityCriteria.stages.join(', ')}).`,
+      ar: `مرحلة تقدم المشروع غير محددة : هذا البرنامج يستهدف أساساً (${program.eligibilityCriteria.stages.join(', ')}).`
+    });
+  } else if (program.eligibilityCriteria.stages.includes(applicant.businessStage)) {
     matchedBecause.push({
       fr: `Stade d'avancement du projet conforme aux critères d'admission.`,
       ar: `مرحلة تقدم المشروع متطابقة مع شروط القبول.`
@@ -74,7 +86,12 @@ export function evaluateProgramCompatibility(
   }
 
   // 4. Sector
-  if (program.eligibilityCriteria.sectors.includes(applicant.sector)) {
+  if (!applicant.sector) {
+    needsVerification.push({
+      fr: `Secteur d'activité non précisé : vérifier que votre secteur figure parmi les secteurs admis auprès de cet organisme.`,
+      ar: `قطاع النشاط غير محدد : يرجى التثبت من إدراج قطاع نشاطكم ضمن القطاعات المؤهلة لدى هذه المؤسسة.`
+    });
+  } else if (program.eligibilityCriteria.sectors.includes(applicant.sector)) {
     matchedBecause.push({
       fr: `Secteur d'activité admissible auprès de cet organisme.`,
       ar: `قطاع النشاط مؤهل ومدعوم لدى هذه المؤسسة.`
@@ -89,10 +106,13 @@ export function evaluateProgramCompatibility(
   }
 
   // 5. Apport personnel (Contribution %)
-  const totalCost = applicant.totalProjectCost > 0 ? applicant.totalProjectCost : (amount + applicant.userContribution);
-  const contributionRatio = totalCost > 0 ? (applicant.userContribution / totalCost) * 100 : 0;
+  const totalCost = (applicant.totalProjectCost && applicant.totalProjectCost > 0)
+    ? applicant.totalProjectCost 
+    : (amount + (applicant.userContribution || 0));
+  const userContrib = applicant.userContribution || 0;
+  const contributionRatio = totalCost > 0 ? (userContrib / totalCost) * 100 : 0;
 
-  if (totalCost <= 0 && applicant.userContribution <= 0) {
+  if (totalCost <= 0 && userContrib <= 0) {
     if (program.minContributionPercent > 0) {
       needsVerification.push({
         fr: `Apport personnel non renseigné : ce mécanisme requiert un apport propre d'au moins ${program.minContributionPercent}% du coût global.`,
@@ -116,33 +136,36 @@ export function evaluateProgramCompatibility(
   }
 
   // 6. Forme juridique (Legal Structure)
-  if (applicant.legalStructure) {
-    if (applicant.legalStructure === 'not_yet_created') {
-      if (program.eligibilityCriteria.allowedLegalForms.includes('not_yet_created') || applicant.businessStage === 'idea_project') {
-        needsVerification.push({
-          fr: `Entreprise en cours de constitution : choisir une forme juridique éligible (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) avant le déblocage.`,
-          ar: `المؤسسة في طور التأسيس : يتعين اختيار شكل قانوني مؤهل (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) قبل صرف التمويل.`
-        });
-      } else {
-        potentialIssues.push({
-          fr: `Structure juridique formalisée requise : ce mécanisme s'adresse aux entreprises déjà immatriculées au RNE (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
-          ar: `يشترط وجود هيكل قانوني مسجل : هذه الآلية مخصصة للمؤسسات المسجلة بالسجل الوطني للمؤسسات (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
-        });
-        scoreWeight -= 20;
-      }
-    } else if (program.eligibilityCriteria.allowedLegalForms.includes(applicant.legalStructure)) {
-      matchedBecause.push({
-        fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) admise par ce dispositif.`,
-        ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) مقبولة ومؤهلة لدى هذه الآلية.`
+  if (!applicant.legalStructure) {
+    needsVerification.push({
+      fr: `Forme juridique non précisée : ce mécanisme s'adresse aux structures (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
+      ar: `الشكل القانوني غير محدد : يتطلب هذا البرنامج أشكالاً قانونية محددة (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
+    });
+  } else if (applicant.legalStructure === 'not_yet_created') {
+    if (program.eligibilityCriteria.allowedLegalForms.includes('not_yet_created') || applicant.businessStage === 'idea_project') {
+      needsVerification.push({
+        fr: `Entreprise en cours de constitution : choisir une forme juridique éligible (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) avant le déblocage.`,
+        ar: `المؤسسة في طور التأسيس : يتعين اختيار شكل قانوني مؤهل (${program.eligibilityCriteria.allowedLegalForms.filter(f => f !== 'not_yet_created').map(f => f.toUpperCase()).join(', ')}) قبل صرف التمويل.`
       });
-      scoreWeight += 10;
     } else {
       potentialIssues.push({
-        fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) non admise : les formes requises sont (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
-        ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) غير مؤهلة : الأشكال المقبولة هي (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
+        fr: `Structure juridique formalisée requise : ce mécanisme s'adresse aux entreprises déjà immatriculées au RNE (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
+        ar: `يشترط وجود هيكل قانوني مسجل : هذه الآلية مخصصة للمؤسسات المسجلة بالسجل الوطني للمؤسسات (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
       });
-      scoreWeight -= 25;
+      scoreWeight -= 20;
     }
+  } else if (program.eligibilityCriteria.allowedLegalForms.includes(applicant.legalStructure)) {
+    matchedBecause.push({
+      fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) admise par ce dispositif.`,
+      ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) مقبولة ومؤهلة لدى هذه الآلية.`
+    });
+    scoreWeight += 10;
+  } else {
+    potentialIssues.push({
+      fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) non admise : les formes requises sont (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`,
+      ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) غير مؤهلة : الأشكال المقبولة هي (${program.eligibilityCriteria.allowedLegalForms.map(f => f.toUpperCase()).join(', ')}).`
+    });
+    scoreWeight -= 25;
   }
 
   // 7. Âge du promoteur (Applicant Age)
@@ -163,50 +186,64 @@ export function evaluateProgramCompatibility(
       }
     } else {
       needsVerification.push({
-        fr: `Vérifier le critère d'âge : plafond fixé à ${program.eligibilityCriteria.maxAge} ans pour les bénéficiaires de ce programme.`,
-        ar: `التثبت من شرط السن : السقف الأقصى محدد بـ ${program.eligibilityCriteria.maxAge} سنة للمنتفعين بهذا البرنامج.`
+        fr: `Critère d'âge à confirmer : plafond fixé à < ${program.eligibilityCriteria.maxAge} ans pour les bénéficiaires de ce programme.`,
+        ar: `شرط السن للتأكيد : السقف الأقصى محدد بـ ${program.eligibilityCriteria.maxAge} سنة للمنتفعين بهذا البرنامج.`
       });
     }
   }
 
-  // 8. Regional Development Zone (ZDR) bonus
-  const isZdrLocation = applicant.isRegionalDevelopmentZone || REGIONAL_DEVELOPMENT_ZONES.includes(applicant.location);
-  if (isZdrLocation) {
-    if (program.id === 'foprodi_dotation' || program.id === 'sotugar_guarantee' || program.id === 'bfpme_creation') {
-      matchedBecause.push({
-        fr: `Implantation en Zone de Développement Régional (${applicant.location}): éligibilité aux avantages et taux de garantie majorés.`,
-        ar: `الانتصاب بمنطقة تنمية جهوية (${applicant.location}): التمتع بحوافز استثمار ونسب ضمان تفاضلية معززة.`
+  // 8. Regional Development Zone (ZDR) bonus (Data-driven: program.hasRegionalDevelopmentBonus)
+  if (program.hasRegionalDevelopmentBonus) {
+    if (applicant.location) {
+      const isZdrLocation = applicant.isRegionalDevelopmentZone || REGIONAL_DEVELOPMENT_ZONES.includes(applicant.location);
+      if (isZdrLocation) {
+        matchedBecause.push({
+          fr: `Implantation en Zone de Développement Régional (${applicant.location}): éligibilité aux avantages et taux de garantie ou primes majorés.`,
+          ar: `الانتصاب بمنطقة تنمية جهوية (${applicant.location}): التمتع بحوافز استثمار ونسب ضمان تفاضلية معززة.`
+        });
+        scoreWeight += 15;
+      }
+    } else {
+      needsVerification.push({
+        fr: `Localisation régionale non précisée : à vérifier pour l'éligibilité aux bonifications et primes de développement régional (ZDR).`,
+        ar: `الموقع الجغرافي غير محدد : للتأكد من أحقية التمتع بحوافز وتفاضليات التنمية الجهوية.`
       });
-      scoreWeight += 15;
     }
   }
 
   // 9. Degree Requirement (e.g. BTS Diplômés)
+  // CRITICAL: If degree is unknown (undefined), DO NOT DISQUALIFY! Flag as needsVerification!
   if (program.eligibilityCriteria.requiresDegree) {
-    if (applicant.hasHigherEducationDegree) {
+    if (applicant.hasHigherEducationDegree === true) {
       matchedBecause.push({
-        fr: `Diplôme d'enseignement supérieur validé: ouvre l'accès au plafond supérieur de 150 000 DT.`,
-        ar: `شهادة تعليم عالٍ متوفرة: تتيح الانتفاع بالسقف الأقصى البالغ 150 ألف دينار.`
+        fr: `Diplôme d'enseignement supérieur validé : ouvre l'accès au plafond supérieur de 150 000 DT.`,
+        ar: `شهادة تعليم عالٍ متوفرة : تتيح الانتفاع بالسقف الأقصى البالغ 150 ألف دينار.`
       });
       scoreWeight += 20;
-    } else {
+    } else if (applicant.hasHigherEducationDegree === false) {
       potentialIssues.push({
         fr: `Ce volet spécifique exige impérativement un diplôme universitaire homologué.`,
         ar: `هذا المسار يشترط وجوباً شهادة جامعية معادلة.`
       });
       scoreWeight -= 40;
+    } else {
+      // Degree is unknown / not specified
+      needsVerification.push({
+        fr: `Diplôme d'enseignement supérieur requis : veuillez confirmer si vous êtes titulaire d'un diplôme universitaire.`,
+        ar: `شهادة تعليم عالٍ مطلوبة : يرجى تأكيد ما إذا كنتم حاصلين على شهادة جامعية.`
+      });
     }
   }
 
   // 10. Startup Act Label
   if (program.eligibilityCriteria.requiresStartupLabel) {
-    if (applicant.hasStartupActLabel) {
+    if (applicant.hasStartupActLabel === true) {
       matchedBecause.push({
-        fr: `Labellisation Startup Act confirmée: déblocage des bourses et avantages fiscaux.`,
-        ar: `علامة مؤسسة ناشئة متوفرة: تفعيل المنحة الشهرية والامتيازات الجبائية.`
+        fr: `Labellisation Startup Act confirmée : déblocage des bourses et avantages fiscaux.`,
+        ar: `علامة مؤسسة ناشئة متوفرة : تفعيل المنحة الشهرية والامتيازات الجبائية.`
       });
       scoreWeight += 30;
-    } else {
+    } else if (applicant.hasStartupActLabel === false) {
       potentialIssues.push({
         fr: `Nécessite l'obtention préalable du Label Startup Act auprès du collège de labellisation.`,
         ar: `يشترط نيل علامة مؤسسة ناشئة مسبقاً من لجنة إسناد العلامة.`
@@ -216,6 +253,11 @@ export function evaluateProgramCompatibility(
         ar: `التثبت من توفر معايير التجديد والقدرة على التوسع لمنظومة ستارت آب آكت.`
       });
       scoreWeight -= 30;
+    } else {
+      needsVerification.push({
+        fr: `Labellisation Startup Act : nécessite l'obtention préalable du label officiel auprès du collège de labellisation.`,
+        ar: `علامة مؤسسة ناشئة : يتطلب نيل العلامة مسبقاً من لجنة إسناد العلامة.`
+      });
     }
   }
 
@@ -235,9 +277,9 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // 12. Collateral / Guarantees
+  // 12. Collateral / Guarantees (Data-driven: program.accessibleWithoutHeavyCollateral)
   if (applicant.collateralPreference === 'none' || applicant.collateralPreference === 'limited') {
-    if (program.category === 'guarantee' || program.id === 'bts_diplomes' || program.id === 'enda_microcredit_equip') {
+    if (program.accessibleWithoutHeavyCollateral || program.category === 'guarantee') {
       matchedBecause.push({
         fr: `Dispositif adapté aux porteurs de projet sans garanties réelles ou hypothèques lourdes.`,
         ar: `آلية مناسبة لأصحاب المشاريع الذين لا يملكون رهوناً عقارية أو ضمانات عينية ثقيلة.`
@@ -249,14 +291,14 @@ export function evaluateProgramCompatibility(
   // 13. Verification items
   if (program.verification.unverifiedFields.length > 0) {
     needsVerification.push({
-      fr: `Préciser auprès du chargé d'affaires: ${program.verification.unverifiedFields.join(', ')}.`,
-      ar: `استيضاح هذه النقاط مع مسؤول الفرع: ${program.verification.unverifiedFields.join(', ')}.`
+      fr: `Préciser auprès du chargé d'affaires : ${program.verification.unverifiedFields.join(', ')}.`,
+      ar: `استيضاح هذه النقاط مع مسؤول الفرع : ${program.verification.unverifiedFields.join(', ')}.`
     });
   }
 
   needsVerification.push({
-    fr: `Confirmation de l'acceptation du dossier par le comité de crédit territorial.`,
-    ar: `التأكد من قبول الملف من طرف لجنة التمويل الجهوية المختصة.`
+    fr: `Confirmation finale de l'admissibilité du dossier par le comité de crédit territorial.`,
+    ar: `التأكد النهائي من قبول الملف من طرف لجنة التمويل الجهوية المختصة.`
   });
 
   // Calculate Cost
@@ -271,18 +313,18 @@ export function evaluateProgramCompatibility(
     eligibilityLevel = 'potential_blockers';
   }
 
-  // Neutral, transparent summary (Never "X% chance of approval")
+  // Neutral, transparent summary reflecting alignment with public criteria (Never "X% approval chance")
   const compatibilitySummary = {
     fr: eligibilityLevel === 'high'
-      ? `Forte adéquation technique avec les critères réglementaires de ${provider.acronym}.`
+      ? `Forte adéquation avec les critères publics de ${provider.acronym}.`
       : eligibilityLevel === 'moderate'
-      ? `Opportunité envisageable sous réserve d'ajustements (garanties ou apport).`
-      : `Éligibilité restreinte: des critères bloquants nécessitent une restructuration du projet.`,
+      ? `Adéquation partielle — points à vérifier avant soumission.`
+      : `Critères potentiellement bloquants identifiés pour ce dispositif.`,
     ar: eligibilityLevel === 'high'
-      ? `تطابق فني قوي مع المعايير القانونية المعتمدة لدى ${provider.acronym}.`
+      ? `تطابق قوي مع المعايير العامة المنشورة لدى ${provider.acronym}.`
       : eligibilityLevel === 'moderate'
-      ? `فرصة ممكنة مع اشتراط تسوية بعض النقاط (الضمانات أو التمويل الذاتي).`
-      : `أهلية محدودة: وجود شروط تستوجب تعديل هيكلة المشروع.`
+      ? `تطابق جزئي — نقاط تتطلب التثبت والاستيضاح.`
+      : `وجود شروط قد تعيق القبول الفني لهذا البرنامج.`
   };
 
   return {

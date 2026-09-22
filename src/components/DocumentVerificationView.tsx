@@ -17,15 +17,18 @@ import { TrustBadge } from './TrustBadge';
 interface DocumentVerificationViewProps {
   applicantProfile: ApplicantProfile;
   language: Language;
+  onNavigateToQuestionnaire?: () => void;
 }
 
 export const DocumentVerificationView: React.FC<DocumentVerificationViewProps> = ({
   applicantProfile,
-  language
+  language,
+  onNavigateToQuestionnaire
 }) => {
   const t = TRANSLATIONS[language];
   const [docText, setDocText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [unavailableError, setUnavailableError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{
     identifiedFields?: { key: string; label: string; extractedValue: string; status: string; comment?: string }[];
     contradictions?: string[];
@@ -71,6 +74,8 @@ Apport personnel réuni: 15 000 DT par les deux ingénieurs diplômés de l'ENIT
   const handleAnalyze = async () => {
     if (!docText.trim()) return;
     setIsAnalyzing(true);
+    setUnavailableError(null);
+    setAnalysisResult(null);
 
     try {
       const res = await fetch('/api/gemini/analyze-document', {
@@ -84,11 +89,22 @@ Apport personnel réuni: 15 000 DT par les deux ingénieurs diplômés de l'ENIT
       });
 
       const data = await res.json();
-      if (data.analysis) {
+      if (data.status === 'unavailable' || !data.analysis) {
+        setUnavailableError(
+          data.error || (language === 'ar'
+            ? 'التحليل الآلي للوثائق غير متوفر حالياً. الفحص اليدوي ضروري.'
+            : 'Analyse automatique indisponible. Vérification manuelle nécessaire.')
+        );
+      } else {
         setAnalysisResult(data.analysis);
       }
     } catch (err) {
       console.error('Error analyzing document:', err);
+      setUnavailableError(
+        language === 'ar'
+          ? 'التحليل الآلي للوثائق غير متوفر حالياً. الفحص اليدوي ضروري.'
+          : 'Analyse automatique indisponible. Vérification manuelle nécessaire.'
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -164,6 +180,56 @@ Apport personnel réuni: 15 000 DT par les deux ingénieurs diplômés de l'ENIT
           </button>
         </div>
       </div>
+
+      {/* Explicit Unavailable State Banner */}
+      {unavailableError && (
+        <div id="doc-analysis-unavailable-banner" className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-4">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <h2 className="text-sm font-bold text-amber-950">
+              {language === 'ar' 
+                ? 'التحليل الآلي غير متوفر. الفحص اليدوي ضروري.' 
+                : 'Analyse automatique indisponible. Vérification manuelle nécessaire.'}
+            </h2>
+          </div>
+
+          <div className="p-3 rounded-lg bg-amber-100/70 border border-amber-200 text-amber-900 leading-relaxed font-medium">
+            {language === 'ar'
+              ? 'تم استخراج النص أعلاه ولكن تعذر تحليله آلياً. يرجى التحقق من المعايير والشروط يدوياً.'
+              : "Le texte ci-dessus a été extrait mais n'a pas pu être analysé automatiquement. Veuillez vérifier les critères manuellement."}
+          </div>
+
+          {docText && (
+            <div className="p-3.5 rounded-lg bg-white border border-amber-200 text-slate-700 font-mono text-[11px] max-h-36 overflow-y-auto whitespace-pre-wrap">
+              {docText}
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-amber-200/60 text-slate-700">
+            <span className="font-semibold block mb-1">
+              {language === 'ar' ? 'النقاط الواجب فحصها يدوياً :' : 'Points à contrôler manuellement :'}
+            </span>
+            <ul className="list-disc pl-5 rtl:pr-5 space-y-1 text-slate-600">
+              <li>{language === 'ar' ? 'تطابق المبلغ المذكور في الفاتورة مع التمويل المطلوب' : 'Concordance exacte entre le montant TTC du devis et le prêt sollicité'}</li>
+              <li>{language === 'ar' ? 'صلاحية الفاتورة التقديرية (أكثر من 60 يوماً)' : 'Validité temporelle du devis pro-forma (généralement 60 à 90 jours)'}</li>
+              <li>{language === 'ar' ? 'مطابقة السجل الوطني للمؤسسات للموضوع والمسير' : 'Concordance de l’objet social RNE avec le projet'}</li>
+            </ul>
+          </div>
+
+          {onNavigateToQuestionnaire && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onNavigateToQuestionnaire}
+                className="px-4 py-2.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs transition-all flex items-center gap-2 shadow-xs"
+              >
+                <span>{language === 'ar' ? 'ملء بيانات الملف يدوياً من هذه الوثيقة' : 'Renseigner manuellement mon profil à partir de ce document'}</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Analysis Results View */}
       {analysisResult && (

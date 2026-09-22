@@ -11,9 +11,19 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   AlertCircle, 
-  Loader2 
+  Loader2,
+  Edit2,
+  RotateCcw,
+  Info
 } from 'lucide-react';
-import { Language, FinancingPurpose, ApplicantProfile } from '../types/financing';
+import { 
+  Language, 
+  FinancingPurpose, 
+  ApplicantProfile,
+  BusinessSector,
+  BusinessStage 
+} from '../types/financing';
+import { TUNISIAN_GOVERNORATES } from '../data/financingData';
 import { TRANSLATIONS } from '../i18n/translations';
 import { TrustBadge } from './TrustBadge';
 
@@ -23,6 +33,20 @@ interface HeroSectionProps {
   onAiParsed: (extractedProfile: Partial<ApplicantProfile>) => void;
   onExploreAll: () => void;
   onStartFullDiagnostic: () => void;
+}
+
+interface ExtractedDraft {
+  financingRequested?: number;
+  totalProjectCost?: number;
+  userContribution?: number;
+  purpose?: FinancingPurpose;
+  sector?: BusinessSector;
+  location?: string;
+  businessStage?: BusinessStage;
+  hasHigherEducationDegree?: boolean;
+  missingCriticalFields?: string[];
+  unassumedFields?: string[];
+  summaryText?: string;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -36,6 +60,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const [naturalQuery, setNaturalQuery] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+
+  // AI Confirmation State
+  const [extractedDraft, setExtractedDraft] = useState<ExtractedDraft | null>(null);
+  const [isEditingDraft, setIsEditingDraft] = useState(false);
+
+  const sectorLabels: Record<BusinessSector, { fr: string; ar: string }> = {
+    industry: { fr: 'Industrie manufacturière', ar: 'الصناعات المعملية' },
+    services: { fr: 'Services & Conseil', ar: 'الخدمات والاستشارات' },
+    ict_tech: { fr: 'Technologies & Logiciels', ar: 'تكنولوجيا المعلومات' },
+    agriculture_agribusiness: { fr: 'Agriculture & Agroalimentaire', ar: 'الفلاحة والصناعات الغذائية' },
+    crafts_trades: { fr: 'Artisanat & Métiers', ar: 'الصناعات التقليدية' },
+    commerce: { fr: 'Commerce & Distribution', ar: 'التجارة والتوزيع' },
+    renewable_energy: { fr: 'Énergies renouvelables', ar: 'الطاقات المتجددة' },
+    tourism: { fr: 'Tourisme & Restauration', ar: 'السياحة والإطعام' },
+    other: { fr: 'Autre secteur', ar: 'قطاع آخر' }
+  };
+
+  const stageLabels: Record<BusinessStage, { fr: string; ar: string }> = {
+    idea_project: { fr: 'Idée ou étude en cours', ar: 'فكرة أو دراسة' },
+    creation_underway: { fr: 'Création en cours', ar: 'في طور التأسيس' },
+    established_under_2y: { fr: 'Moins de 2 ans d’activité', ar: 'أقل من سنتين نشاط' },
+    established_over_2y: { fr: 'Plus de 2 ans d’activité', ar: 'أكثر من سنتين نشاط' }
+  };
+
+  const purposeLabels: Record<FinancingPurpose, { fr: string; ar: string }> = {
+    creation: { fr: 'Création d’entreprise', ar: 'بعث وتأسيس مشروع' },
+    equipment: { fr: 'Achat d’équipements', ar: 'اقتناء معدات وآلات' },
+    expansion: { fr: 'Extension / Développement', ar: 'توسعة النشاط' },
+    working_capital: { fr: 'Fonds de roulement', ar: 'رأس مال عامل وسيولة' },
+    agriculture: { fr: 'Projet agricole', ar: 'مشروع فلاحي' },
+    innovation_rd: { fr: 'Tech & R&D', ar: 'تجديد وتكنولوجيا' },
+    export: { fr: 'Développement export', ar: 'تصدير وأسواق خارجية' }
+  };
 
   const purposeOptions: { id: FinancingPurpose; title: { fr: string; ar: string }; icon: React.ReactNode; desc: { fr: string; ar: string } }[] = [
     {
@@ -96,13 +153,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
       const data = await res.json();
       if (data.extracted) {
-        onAiParsed(data.extracted);
+        // Do NOT jump directly to results! Present the extracted draft for user confirmation
+        setExtractedDraft({
+          financingRequested: data.extracted.financingRequested ?? undefined,
+          totalProjectCost: data.extracted.totalProjectCost ?? data.extracted.financingRequested ?? undefined,
+          userContribution: data.extracted.userContribution ?? undefined,
+          purpose: data.extracted.purpose ?? undefined,
+          sector: data.extracted.sector ?? undefined,
+          location: data.extracted.location ?? undefined,
+          businessStage: data.extracted.businessStage ?? undefined,
+          missingCriticalFields: data.extracted.missingCriticalFields || [],
+          unassumedFields: data.extracted.unassumedFields || [],
+          summaryText: data.extracted.summaryText
+        });
       }
     } catch (err: any) {
       console.warn('AI intake fallback or network error:', err);
-      // Fallback: simple heuristic
+      // Fallback: heuristic extraction without fabricating unmentioned data
       const lower = naturalQuery.toLowerCase();
-      let detectedPurpose: FinancingPurpose = 'creation';
+      let detectedPurpose: FinancingPurpose | undefined = undefined;
       if (lower.includes('équipement') || lower.includes('machine') || lower.includes('آلات')) {
         detectedPurpose = 'equipment';
       } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('سيولة')) {
@@ -111,15 +180,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         detectedPurpose = 'agriculture';
       } else if (lower.includes('startup') || lower.includes('tech') || lower.includes('تجديد')) {
         detectedPurpose = 'innovation_rd';
+      } else if (lower.includes('création') || lower.includes('creation') || lower.includes('تأسيس') || lower.includes('بعث')) {
+        detectedPurpose = 'creation';
       }
 
-      // Fallback: extract real numbers from query, never fabricate unstated numbers
+      // Extract real amount if explicitly present
       const digitsOnly = naturalQuery.replace(/\s+/g, ' ');
       const match = digitsOnly.match(/(\d+(?:[.,]\d+)?)\s*(?:dt|tnd|dinars?|دينار|k)?/i);
-      let detectedAmount = 0;
+      let detectedAmount: number | undefined = undefined;
       if (match) {
         const raw = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(raw)) {
+        if (!isNaN(raw) && raw > 0) {
           detectedAmount = match[0].toLowerCase().includes('k') && raw < 1000 ? raw * 1000 : raw;
           if (detectedAmount > 0 && detectedAmount < 1000 && !match[0].toLowerCase().includes('dt')) {
             detectedAmount *= 1000;
@@ -127,15 +198,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         }
       }
 
-      onAiParsed({
+      const missing: string[] = [];
+      if (!detectedAmount) missing.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'Montant du financement');
+      if (!detectedPurpose) missing.push(language === 'ar' ? 'موضوع التمويل' : 'Objet du financement');
+
+      setExtractedDraft({
         purpose: detectedPurpose,
         financingRequested: detectedAmount,
         totalProjectCost: detectedAmount,
-        userContribution: 0
+        userContribution: undefined,
+        location: undefined,
+        sector: undefined,
+        businessStage: undefined,
+        missingCriticalFields: missing,
+        unassumedFields: [
+          language === 'ar' ? 'الولاية / الجهة غير محددة' : 'Région / Gouvernorat non spécifié',
+          language === 'ar' ? 'القطاع غير محدد' : 'Secteur d’activité non spécifié',
+          language === 'ar' ? 'المساهمة الذاتية غير محددة' : 'Apport personnel non spécifié'
+        ]
       });
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleConfirmDraft = () => {
+    if (!extractedDraft) return;
+    onAiParsed({
+      financingRequested: extractedDraft.financingRequested,
+      totalProjectCost: extractedDraft.totalProjectCost ?? extractedDraft.financingRequested,
+      userContribution: extractedDraft.userContribution,
+      purpose: extractedDraft.purpose,
+      sector: extractedDraft.sector,
+      location: extractedDraft.location,
+      businessStage: extractedDraft.businessStage,
+      hasHigherEducationDegree: extractedDraft.hasHigherEducationDegree
+    });
   };
 
   return (
@@ -191,43 +289,264 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <TrustBadge type="ai_interpretation" language={language} subtle />
             </div>
 
-            <form onSubmit={handleAiIntake} className="space-y-3">
-              <div className="relative">
-                <textarea
-                  id="hero-ai-input"
-                  value={naturalQuery}
-                  onChange={(e) => setNaturalQuery(e.target.value)}
-                  placeholder={t.heroAiIntakePlaceholder}
-                  rows={2}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 text-sm placeholder-slate-400 transition-all outline-hidden resize-none"
-                />
-              </div>
+            {/* If no draft yet: input form */}
+            {!extractedDraft ? (
+              <form onSubmit={handleAiIntake} className="space-y-3">
+                <div className="relative">
+                  <textarea
+                    id="hero-ai-input"
+                    value={naturalQuery}
+                    onChange={(e) => setNaturalQuery(e.target.value)}
+                    placeholder={t.heroAiIntakePlaceholder}
+                    rows={2}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 text-sm placeholder-slate-400 transition-all outline-hidden resize-none"
+                  />
+                </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-slate-500 hidden sm:inline-block">
-                  {t.heroAiIntakeHint}
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-slate-500 hidden sm:inline-block">
+                    {t.heroAiIntakeHint}
+                  </span>
 
-                <button
-                  id="hero-ai-submit-btn"
-                  type="submit"
-                  disabled={isParsing || !naturalQuery.trim()}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ml-auto shadow-xs"
-                >
-                  {isParsing ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>{language === 'ar' ? 'جارٍ التحليل...' : 'Analyse en cours...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{t.heroAiIntakeSubmit}</span>
-                    </>
+                  <button
+                    id="hero-ai-submit-btn"
+                    type="submit"
+                    disabled={isParsing || !naturalQuery.trim()}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ml-auto shadow-xs"
+                  >
+                    {isParsing ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>{language === 'ar' ? 'جارٍ التحليل...' : 'Analyse en cours...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{t.heroAiIntakeSubmit}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Confirmation & Review Step */
+              <div id="ai-confirmation-review-card" className="space-y-4 pt-1">
+                <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                      {language === 'ar' 
+                        ? 'إليك ما استوعبناه من معطيات مشروعك :' 
+                        : 'Voici ce que nous avons compris de votre projet :'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingDraft(!isEditingDraft)}
+                      className="text-xs text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>{isEditingDraft ? (language === 'ar' ? 'تم التعديل' : 'Terminer') : (language === 'ar' ? 'تعديل المعطيات' : 'Corriger')}</span>
+                    </button>
+                  </div>
+                  {extractedDraft.summaryText && (
+                    <p className="text-xs text-indigo-800 leading-relaxed">
+                      {extractedDraft.summaryText}
+                    </p>
                   )}
-                </button>
+                </div>
+
+                {/* Extracted Fields Table / Form */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Secteur */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'القطاع :' : 'Secteur d’activité :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <select
+                        value={extractedDraft.sector || ''}
+                        onChange={(e) => setExtractedDraft({ ...extractedDraft, sector: (e.target.value as BusinessSector) || undefined })}
+                        className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                      >
+                        <option value="">{language === 'ar' ? '-- غير محدد --' : '-- Non précisé --'}</option>
+                        {Object.entries(sectorLabels).map(([key, label]) => (
+                          <option key={key} value={key}>{label[language]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.sector ? 'text-slate-900' : 'text-amber-700'}`}>
+                        {extractedDraft.sector ? sectorLabels[extractedDraft.sector][language] : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Montant souhaité */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'التمويل المطلوب :' : 'Montant souhaité :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={extractedDraft.financingRequested || ''}
+                          onChange={(e) => setExtractedDraft({
+                            ...extractedDraft,
+                            financingRequested: parseFloat(e.target.value) || undefined,
+                            totalProjectCost: extractedDraft.totalProjectCost ?? (parseFloat(e.target.value) || undefined)
+                          })}
+                          placeholder="Ex: 80000"
+                          className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                        />
+                        <span className="font-bold text-slate-500">DT</span>
+                      </div>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.financingRequested ? 'text-blue-900' : 'text-amber-700'}`}>
+                        {extractedDraft.financingRequested ? `${extractedDraft.financingRequested.toLocaleString('fr-FR')} DT` : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Apport personnel */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'المساهمة الذاتية :' : 'Apport personnel :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={extractedDraft.userContribution || ''}
+                          onChange={(e) => setExtractedDraft({
+                            ...extractedDraft,
+                            userContribution: parseFloat(e.target.value) || undefined
+                          })}
+                          placeholder="Ex: 20000"
+                          className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                        />
+                        <span className="font-bold text-slate-500">DT</span>
+                      </div>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.userContribution ? 'text-slate-900' : 'text-slate-500'}`}>
+                        {extractedDraft.userContribution ? `${extractedDraft.userContribution.toLocaleString('fr-FR')} DT` : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Région / Gouvernorat */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'الولاية :' : 'Région / Gouvernorat :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <select
+                        value={extractedDraft.location || ''}
+                        onChange={(e) => setExtractedDraft({ ...extractedDraft, location: e.target.value || undefined })}
+                        className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                      >
+                        <option value="">{language === 'ar' ? '-- غير محدد --' : '-- Non précisé --'}</option>
+                        {TUNISIAN_GOVERNORATES.map(gov => (
+                          <option key={gov} value={gov}>{gov}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.location ? 'text-slate-900' : 'text-amber-700'}`}>
+                        {extractedDraft.location || (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Stade */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'مرحلة المشروع :' : 'Stade d’avancement :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <select
+                        value={extractedDraft.businessStage || ''}
+                        onChange={(e) => setExtractedDraft({ ...extractedDraft, businessStage: (e.target.value as BusinessStage) || undefined })}
+                        className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                      >
+                        <option value="">{language === 'ar' ? '-- غير محدد --' : '-- Non précisé --'}</option>
+                        {Object.entries(stageLabels).map(([key, label]) => (
+                          <option key={key} value={key}>{label[language]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.businessStage ? 'text-slate-900' : 'text-slate-500'}`}>
+                        {extractedDraft.businessStage ? stageLabels[extractedDraft.businessStage][language] : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Objet */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'موضوع التمويل :' : 'Objet du financement :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <select
+                        value={extractedDraft.purpose || ''}
+                        onChange={(e) => setExtractedDraft({ ...extractedDraft, purpose: (e.target.value as FinancingPurpose) || undefined })}
+                        className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                      >
+                        <option value="">{language === 'ar' ? '-- غير محدد --' : '-- Non précisé --'}</option>
+                        {Object.entries(purposeLabels).map(([key, label]) => (
+                          <option key={key} value={key}>{label[language]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.purpose ? 'text-slate-900' : 'text-slate-500'}`}>
+                        {extractedDraft.purpose ? purposeLabels[extractedDraft.purpose][language] : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Missing / Unassumed items notice */}
+                {((extractedDraft.missingCriticalFields && extractedDraft.missingCriticalFields.length > 0) || 
+                  (extractedDraft.unassumedFields && extractedDraft.unassumedFields.length > 0)) && (
+                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-700 mb-1">
+                      <Info className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{language === 'ar' ? 'معطيات لم يتم اختلاقها (تبقى للتثبت) :' : 'Données non assumées (restent à vérifier) :'}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[...(extractedDraft.unassumedFields || []), ...(extractedDraft.missingCriticalFields || [])].map((item, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirmation Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExtractedDraft(null);
+                      setIsEditingDraft(false);
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>{language === 'ar' ? 'إعادة الصياغة' : 'Recommencer la saisie'}</span>
+                  </button>
+
+                  <button
+                    id="ai-confirm-submit-btn"
+                    type="button"
+                    onClick={handleConfirmDraft}
+                    className="px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <span>{language === 'ar' ? 'تأكيد والبحث عن التمويل' : 'Confirmer et lancer la recherche'}</span>
+                    <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
 
             {parseError && (
               <div className="mt-2 text-xs text-rose-600 flex items-center gap-1">

@@ -56,14 +56,16 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
 
   // Auto-detect Regional Development Zone (ZDR)
   useEffect(() => {
-    const isZdr = REGIONAL_DEVELOPMENT_ZONES.includes(profile.location);
+    const isZdr = profile.location ? REGIONAL_DEVELOPMENT_ZONES.includes(profile.location) : false;
     if (isZdr !== profile.isRegionalDevelopmentZone) {
       setProfile(prev => ({ ...prev, isRegionalDevelopmentZone: isZdr }));
     }
   }, [profile.location]);
 
-  const contributionPercent = profile.totalProjectCost > 0
-    ? Math.round((profile.userContribution / profile.totalProjectCost) * 100)
+  const totalCostVal = profile.totalProjectCost ?? 0;
+  const userContribVal = profile.userContribution ?? 0;
+  const contributionPercent = totalCostVal > 0
+    ? Math.round((userContribVal / totalCostVal) * 100)
     : 0;
 
   const sectors: { id: BusinessSector; label: { fr: string; ar: string } }[] = [
@@ -168,7 +170,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     min="1000"
                     step="1000"
                     value={profile.totalProjectCost || ''}
-                    onChange={(e) => handleCostChange(parseFloat(e.target.value) || 0, profile.userContribution)}
+                    onChange={(e) => handleCostChange(parseFloat(e.target.value) || 0, profile.userContribution || 0)}
                     placeholder="Ex: 100000"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-slate-900 font-semibold outline-hidden"
                   />
@@ -197,7 +199,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     min="0"
                     step="1000"
                     value={profile.userContribution || ''}
-                    onChange={(e) => handleCostChange(profile.totalProjectCost, parseFloat(e.target.value) || 0)}
+                    onChange={(e) => handleCostChange(profile.totalProjectCost || 0, parseFloat(e.target.value) || 0)}
                     placeholder="Ex: 25000"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-slate-900 font-semibold outline-hidden"
                   />
@@ -215,7 +217,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {t.financingRequestedLabel}
                     </span>
                     <div className="text-2xl font-extrabold text-blue-900 mt-0.5">
-                      {profile.financingRequested.toLocaleString('fr-FR')} DT
+                      {(profile.financingRequested || 0).toLocaleString('fr-FR')} DT
                     </div>
                   </div>
                   <Calculator className="w-8 h-8 text-blue-600/40" />

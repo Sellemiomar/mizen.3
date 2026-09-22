@@ -14,35 +14,35 @@ import { ApplicantProfile, FinancingProgram, Language, FinancingPurpose } from '
 import { FINANCING_PROGRAMS, PROVIDERS } from './data/financingData';
 import { runMatchingEngine } from './engine/matchingEngine';
 
-const INITIAL_PROFILE: ApplicantProfile = {
-  totalProjectCost: 100000,
-  userContribution: 25000,
-  financingRequested: 75000,
-  purpose: 'equipment',
-  sector: 'industry',
-  location: 'Sousse',
-  businessStage: 'idea_project',
-  legalStructure: 'suarl',
-  hasHigherEducationDegree: true,
-  hasStartupActLabel: false,
+const EMPTY_PROFILE: ApplicantProfile = {
+  totalProjectCost: undefined,
+  userContribution: undefined,
+  financingRequested: undefined,
+  purpose: undefined,
+  sector: undefined,
+  location: undefined,
+  businessStage: undefined,
+  legalStructure: undefined,
+  hasHigherEducationDegree: undefined,
+  hasStartupActLabel: undefined,
   isRegionalDevelopmentZone: false,
   structurePreference: 'any',
-  collateralPreference: 'limited'
+  collateralPreference: undefined
 };
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('fr');
   const [currentTab, setCurrentTab] = useState<'home' | 'questionnaire' | 'results' | 'explore' | 'compare' | 'dossier' | 'docscan'>('home');
-  const [profile, setProfile] = useState<ApplicantProfile>(INITIAL_PROFILE);
+  const [profile, setProfile] = useState<ApplicantProfile>(EMPTY_PROFILE);
   
-  // Programs for side-by-side comparison
-  const [comparedProgramIds, setComparedProgramIds] = useState<string[]>(['bfpme_creation', 'bts_diplomes']);
+  // Programs for side-by-side comparison (starts empty, user explicitly selects)
+  const [comparedProgramIds, setComparedProgramIds] = useState<string[]>([]);
   
   // Selected Program for Detailed View
   const [detailProgramId, setDetailProgramId] = useState<string | null>(null);
 
   // Selected Program for Dossier preparation
-  const [dossierProgramId, setDossierProgramId] = useState<string>('bfpme_creation');
+  const [dossierProgramId, setDossierProgramId] = useState<string>(FINANCING_PROGRAMS[0]?.id || 'bfpme_creation');
 
   // Notification / Feedback banner when AI pre-fills profile
   const [bannerNotice, setBannerNotice] = useState<string | null>(null);
@@ -218,6 +218,7 @@ export default function App() {
           <DocumentVerificationView
             applicantProfile={profile}
             language={language}
+            onNavigateToQuestionnaire={() => setCurrentTab('questionnaire')}
           />
         )}
       </main>

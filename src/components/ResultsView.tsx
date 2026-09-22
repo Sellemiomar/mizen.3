@@ -53,6 +53,38 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     return r.reasons.eligibilityLevel === filterLevel;
   });
 
+  const isProfileEmpty = !applicantProfile.financingRequested && 
+    !applicantProfile.totalProjectCost && 
+    !applicantProfile.purpose && 
+    !applicantProfile.sector && 
+    !applicantProfile.location && 
+    !applicantProfile.businessStage;
+
+  if (isProfileEmpty) {
+    return (
+      <div id="results-empty-state" className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shadow-2xs">
+          <FileText className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2 font-display">
+          {language === 'ar' ? 'لم يتم تحديد أي ملف تعريف بعد' : 'Aucun profil défini'}
+        </h2>
+        <p className="text-sm text-slate-600 max-w-md mx-auto mb-6 leading-relaxed">
+          {language === 'ar'
+            ? 'لبدء تحليل الأهلية ومطابقة آليات التمويل التونسية، يرجى ملء الاستبيان أو وصف مشروعك من الصفحة الرئيسية.'
+            : 'Commencez par le questionnaire ou décrivez votre projet pour identifier les dispositifs de financement compatibles.'}
+        </p>
+        <button
+          id="empty-results-start-btn"
+          onClick={onRestartDiagnostic}
+          className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm transition-all shadow-xs"
+        >
+          {language === 'ar' ? 'بدء تشخيص المشروع' : 'Remplir le questionnaire'}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Results Header */}
@@ -63,7 +95,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               {results.length} {language === 'ar' ? 'آليات تمويل مطابقة' : 'Dispositifs analysés'}
             </span>
             <span className="text-xs text-slate-500">
-              {applicantProfile.financingRequested.toLocaleString('fr-FR')} DT • {applicantProfile.location}
+              {(applicantProfile.financingRequested ?? 0) > 0 
+                ? `${applicantProfile.financingRequested?.toLocaleString('fr-FR')} DT` 
+                : (language === 'ar' ? 'مبلغ غير محدد' : 'Montant non spécifié')}
+              {applicantProfile.location ? ` • ${applicantProfile.location}` : ''}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-display">
@@ -351,6 +386,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Mandatory Regulatory & Objectivity Disclaimer */}
+                <div className="mt-4 py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">
+                    {language === 'ar'
+                      ? 'يقوم ميزان بتقييم الانسجام الفني مع المعايير العامة المنشورة. لا يمثل هذا التقييم موافقة مبدئية ولا ضماناً للتمويل ولا وعداً بالقبول من لجنة التمويل.'
+                      : "Mizen évalue la cohérence technique avec les critères publics déclarés. Cette évaluation ne constitue ni un accord de principe, ni une garantie de financement, ni une promesse d'acceptation par le comité du financeur."}
+                  </span>
+                </div>
 
                 {/* Action Toolbar */}
                 <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">

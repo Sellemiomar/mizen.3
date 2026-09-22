@@ -209,10 +209,9 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     minContributionPercent: 20,
     rateType: 'variable_tmm',
     rateDescription: {
-      fr: 'TMM + 2,5% à TMM + 3,5% selon le niveau de risque et la nature des garanties.',
-      ar: 'نسبة الفائدة المديرية (TMM) + 2.5% إلى 3.5% حسب المخاطر والضمانات.'
+      fr: 'Taux variable : TMM BCT (7,99%) + marge bancaire (2,5% à 3,5%) selon notation du projet.',
+      ar: 'نسبة متغيرة : TMM البنك المركزي (7.99%) + هامش بنكي (2.5% إلى 3.5%) حسب تصنيف المشروع.'
     },
-    estimatedRateAnnual: 10.5,
     durationMonthsMin: 36,
     durationMonthsMax: 120,
     gracePeriodMonthsMin: 12,
@@ -323,6 +322,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'تتراوح مدة دراسة الملف بين 4 و 12 أسبوعاً في العادة.'
       }
     ],
+    hasRegionalDevelopmentBonus: true,
+    accessibleWithoutHeavyCollateral: false,
     verification: {
       status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.bfpme.com.tn/fr/financement/credit-investissement',
@@ -330,7 +331,7 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       sourceType: 'bank_fiche',
       dateChecked: '2026-06-15',
       verifiedFields: ['minAmount', 'maxAmount', 'minContributionPercent', 'durationMonthsMax', 'purposes'],
-      unverifiedFields: ['exactMarginOverTMM'],
+      unverifiedFields: ['exactMarginOverTMM', 'variableCommercialSpread'],
       notes: {
         fr: 'Montants et durées vérifiés d’après la fiche institutionnelle BFPME. La marge exacte (+2,5% à +3,5% sur TMM) dépend de la décision du comité de crédit.',
         ar: 'تم التحقق من السقوف والآجال استناداً لدليل المنتجات الرسمي. الهامش الدقيق (+2.5% إلى +3.5% فوق TMM) يحدده قرار لجنة القروض.'
@@ -460,6 +461,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'السقف محدد بـ 150 ألف دينار لأصحاب الشهادات العليا (و25 ألف دينار لغير الحاملين لشهادات).'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://www.bts.com.tn/promoteurs-diplomes/',
@@ -577,6 +580,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'الشركة لا تمنح قروضاً مباشرة بل تضمن قروض البنوك الشريكة.'
       }
     ],
+    hasRegionalDevelopmentBonus: true,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://www.sotugar.com.tn/mecanismes-de-garantie/',
@@ -686,6 +691,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'مخصص للأنشطة الصناعية والخدمات ذات الصلة دون التجارة والتوزيع.'
       }
     ],
+    hasRegionalDevelopmentBonus: true,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://www.tunisieindustrie.nat.tn/fr/doc.asp?mcat=12&mrub=88',
@@ -804,6 +811,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'تسند المنحة لـ 3 مؤسسين كحد أقصى لكل شركة ناشئة.'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://startup.gov.tn/fr/advantages',
@@ -838,10 +847,9 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     minContributionPercent: 0,
     rateType: 'fixed',
     rateDescription: {
-      fr: 'Taux d’intérêt effectif global microfinance (16% à 24% selon montant et durée).',
-      ar: 'نسبة فائدة التمويل الأصغر الشاملة (بين 16% و 24% سنوياً بحسب المدة والمبلغ).'
+      fr: 'Taux effectif global microfinance variable (16% à 24% selon montant, durée et agence).',
+      ar: 'نسبة تمويل أصغر فعلية متغيرة (بين 16% و 24% سنوياً بحسب المدة والمبلغ والتقييم الميداني).'
     },
-    estimatedRateAnnual: 18.0,
     durationMonthsMin: 6,
     durationMonthsMax: 48,
     gracePeriodMonthsMin: 0,
@@ -926,6 +934,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'كلفة التمويل الأصغر أعلى من القروض البنكية التقليدية نظراً لطبيعة المخاطر والمتابعة الميدانية.'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.endatamweel.tn/nos-produits/',
@@ -933,7 +943,7 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       sourceType: 'official_portal',
       dateChecked: '2026-06-25',
       verifiedFields: ['minAmount', 'maxAmount', 'durationMonthsMax'],
-      unverifiedFields: ['exactEffectiveRatePerProfile'],
+      unverifiedFields: ['exactEffectiveRatePerProfile', 'processingFees'],
       notes: {
         fr: 'Plafond légal microfinance à 40 000 DT vérifié, mais le taux effectif global (16% à 24%) dépend de la notation interne du client et de la durée.',
         ar: 'السقف القانوني الأقصى 40 ألف دينار متطابق مع التشريعات، لكن النسبة الفعلية (16% إلى 24%) تختلف بحسب التقييم والمدة.'
@@ -960,10 +970,9 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     minContributionPercent: 20,
     rateType: 'profit_margin',
     rateDescription: {
-      fr: 'Marge bénéficiaire convenue d’avance (Mark-up), prix de vente fixe et connu dès la signature.',
-      ar: 'هامش ربح معلوم ومحدد مسبقاً، وسعر بيع ثابت غير قابل للزيادة طوال فترة العقد.'
+      fr: 'Marge bénéficiaire Mourabaha fixée par contrat bilatéral lors de l’acquisition du matériel.',
+      ar: 'هامش ربح مرابحة يحدد بموجب العقد عند شراء التجهيزات من المزود.'
     },
-    estimatedRateAnnual: 9.2,
     durationMonthsMin: 12,
     durationMonthsMax: 84,
     gracePeriodMonthsMin: 0,
@@ -1039,6 +1048,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'لا توظف فوائض تأخير ربوية (أي مبالغ تأخير توجه لجمعيات خيرية وفق الضوابط الشرعية).'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: false,
     verification: {
       status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.banquezitouna.com/entreprises/financements/mourabaha',
@@ -1046,7 +1057,7 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       sourceType: 'bank_fiche',
       dateChecked: '2026-05-19',
       verifiedFields: ['rateType', 'purposes', 'minContributionPercent', 'durationMonthsMax'],
-      unverifiedFields: ['exactProfitMarginRate'],
+      unverifiedFields: ['exactProfitMarginRate', 'takafulInsuranceRate'],
       notes: {
         fr: 'Formule Mourabaha vérifiée et conforme à la Charia. La marge bénéficiaire exacte est fixée lors de l’émission de l’offre d’achat selon la nature des équipements.',
         ar: 'صيغة مرابحة استثمارية معتمدة شرعياً. هامش الربح النهائي يحدد عند إعداد عرض الشراء تبعاً لنوعية المعدات.'
@@ -1145,6 +1156,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'لا يمول شراء الآلات بل مخصص للدراسات والاستشارات والتهيئة الأولية.'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://www.emploi.nat.tn/fo/Fr/global.php?menu1=72',
@@ -1250,6 +1263,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'السقف مرتبط بطبيعة النشاط ونوعية التجهيزات المعتمدة.'
       }
     ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
     verification: {
       status: 'VERIFIED',
       sourceUrl: 'https://www.bts.com.tn/fonds-speciaux/fonapram/',

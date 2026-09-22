@@ -40,38 +40,53 @@ app.get('/api/health', (req, res) => {
 function getIntakeFallback(query: string = '', language: string = 'fr') {
   const lower = query.toLowerCase();
   const amountMatch = query.match(/(\d+[\d\s.,]*)\s*(dt|dinar|tnd|k\b|mille|ألف|الف|دينار|د)?/i);
-  let detectedAmount = 0;
+  let detectedAmount: number | undefined = undefined;
   if (amountMatch) {
     const cleaned = amountMatch[1].replace(/[\s,]/g, '');
-    detectedAmount = parseFloat(cleaned) || 0;
-    if (query.includes('ألف') || query.includes('الف') || query.toLowerCase().includes('mille') || query.toLowerCase().includes('k')) {
-      if (detectedAmount < 1000) detectedAmount *= 1000;
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed > 0) {
+      detectedAmount = parsed;
+      if (query.includes('ألف') || query.includes('الف') || query.toLowerCase().includes('mille') || query.toLowerCase().includes('k')) {
+        if (detectedAmount < 1000) detectedAmount *= 1000;
+      }
     }
   }
 
-  let purpose = 'creation';
-  if (lower.includes('équipement') || lower.includes('machine') || lower.includes('outillage') || lower.includes('معدات') || lower.includes('آلات')) {
+  let purpose: string | undefined = undefined;
+  if (lower.includes('équipement') || lower.includes('equipement') || lower.includes('machine') || lower.includes('outillage') || lower.includes('معدات') || lower.includes('آلات')) {
     purpose = 'equipment';
-  } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('تسيير') || lower.includes('سيولة')) {
+  } else if (lower.includes('création') || lower.includes('creation') || lower.includes('nouveau projet') || lower.includes('بعث') || lower.includes('تأسيس')) {
+    purpose = 'creation';
+  } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('tresorerie') || lower.includes('تسيير') || lower.includes('سيولة')) {
     purpose = 'working_capital';
-  } else if (lower.includes('agricole') || lower.includes('فلاحة') || lower.includes('أرض')) {
+  } else if (lower.includes('agricole') || lower.includes('fella') || lower.includes('فلاحة') || lower.includes('أرض')) {
     purpose = 'agriculture';
   } else if (lower.includes('startup') || lower.includes('innov') || lower.includes('تجديد') || lower.includes('تكنولوج')) {
     purpose = 'innovation_rd';
+  } else if (lower.includes('extension') || lower.includes('développement') || lower.includes('croissance') || lower.includes('توسعة')) {
+    purpose = 'expansion';
   }
 
-  let sector = 'services';
+  let sector: string | undefined = undefined;
   if (lower.includes('textile') || lower.includes('usine') || lower.includes('industr') || lower.includes('صناعة')) {
     sector = 'industry';
   } else if (lower.includes('agri') || lower.includes('fella') || lower.includes('فلاح')) {
     sector = 'agriculture_agribusiness';
-  } else if (lower.includes('tech') || lower.includes('logiciel') || lower.includes('app') || lower.includes('برمجة')) {
+  } else if (lower.includes('tech') || lower.includes('logiciel') || lower.includes('app') || lower.includes('برمجة') || lower.includes('digital')) {
     sector = 'ict_tech';
   } else if (lower.includes('artisan') || lower.includes('نجارة') || lower.includes('خياطة') || lower.includes('حرف')) {
     sector = 'crafts_trades';
+  } else if (lower.includes('service') || lower.includes('conseil') || lower.includes('خدمات')) {
+    sector = 'services';
+  } else if (lower.includes('commerce') || lower.includes('boutique') || lower.includes('magasin') || lower.includes('تجارة')) {
+    sector = 'commerce';
+  } else if (lower.includes('tourisme') || lower.includes('hôtel') || lower.includes('restaurant') || lower.includes('سياحة')) {
+    sector = 'tourism';
+  } else if (lower.includes('énergie') || lower.includes('solaire') || lower.includes('طاقة')) {
+    sector = 'renewable_energy';
   }
 
-  let location = 'Tunis';
+  let location: string | undefined = undefined;
   const arabicGovMap: Record<string, string> = {
     'سوسة': 'Sousse', 'صفاقس': 'Sfax', 'القصرين': 'Kasserine', 'سيدي بوزيد': 'Sidi Bouzid',
     'قفصة': 'Gafsa', 'بنزرت': 'Bizerte', 'نابل': 'Nabeul', 'المنستير': 'Monastir',
@@ -88,38 +103,75 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
     }
   }
 
-  const knownGovs = ['Sousse', 'Sfax', 'Kasserine', 'Sidi Bouzid', 'Gafsa', 'Bizerte', 'Nabeul', 'Monastir', 'Mahdia', 'Kairouan', 'Béja', 'Jendouba', 'Siliana', 'Le Kef', 'Médenine', 'Tataouine', 'Gabès', 'Kébili', 'Tozeur', 'Zaghouan', 'Ariana', 'Ben Arous', 'La Manouba', 'Tunis'];
-  for (const gov of knownGovs) {
-    if (lower.includes(gov.toLowerCase())) {
-      location = gov;
-      break;
+  if (!location) {
+    const knownGovs = ['Sousse', 'Sfax', 'Kasserine', 'Sidi Bouzid', 'Gafsa', 'Bizerte', 'Nabeul', 'Monastir', 'Mahdia', 'Kairouan', 'Béja', 'Jendouba', 'Siliana', 'Le Kef', 'Médenine', 'Tataouine', 'Gabès', 'Kébili', 'Tozeur', 'Zaghouan', 'Ariana', 'Ben Arous', 'La Manouba', 'Tunis'];
+    for (const gov of knownGovs) {
+      if (lower.includes(gov.toLowerCase())) {
+        location = gov;
+        break;
+      }
     }
   }
 
-  const missingCriticalFields: string[] = [];
-  if (detectedAmount === 0) missingCriticalFields.push('montant_financement');
-  missingCriticalFields.push('apport_personnel');
-  if (!lower.includes('textile') && !lower.includes('usine') && !lower.includes('industr') && !lower.includes('agri') && !lower.includes('tech') && !lower.includes('artisan')) {
-    missingCriticalFields.push('secteur_activite');
+  let businessStage: string | undefined = undefined;
+  if (lower.includes('idée') || lower.includes('idee') || lower.includes('étude') || lower.includes('فكرة') || lower.includes('دراسة')) {
+    businessStage = 'idea_project';
+  } else if (lower.includes('en cours de constitution') || lower.includes('en cours de création') || lower.includes('طور التأسيس')) {
+    businessStage = 'creation_underway';
+  } else if (lower.includes('moins de 2 ans') || lower.includes('nouvelle entreprise') || lower.includes('حديثة')) {
+    businessStage = 'established_under_2y';
+  } else if (lower.includes('plus de 2 ans') || lower.includes('établie') || lower.includes('قديمة')) {
+    businessStage = 'established_over_2y';
   }
 
+  const missingCriticalFields: string[] = [];
+  if (!detectedAmount) missingCriticalFields.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'montant_financement');
+  missingCriticalFields.push(language === 'ar' ? 'المساهمة الذاتية (Apport personnel)' : 'apport_personnel');
+  if (!purpose) missingCriticalFields.push(language === 'ar' ? 'طبيعة الاحتياج (بعث، معدات، سيولة...)' : 'objet_financement');
+  if (!sector) missingCriticalFields.push(language === 'ar' ? 'قطاع النشاط' : 'secteur_activite');
+  if (!location) missingCriticalFields.push(language === 'ar' ? 'الولاية / الموقع الجغرافي' : 'gouvernorat');
+  if (!businessStage) missingCriticalFields.push(language === 'ar' ? 'مرحلة تقدم المشروع (فكرة، قيد التأسيس، مؤسسة قائمة)' : 'stade_avancement');
+
+  const unassumedFields = language === 'ar'
+    ? [
+        'لم يتم افتراض ولاية أو مقر للمشروع تلقائياً',
+        'لم يتم افتراض أي قطاع أو نشاط تلقائياً',
+        'لم يتم افتراض شكل قانوني (SARL/SUARL)',
+        'لم يتم افتراض شهادة جامعية أو سن للمشرف',
+        'لم يتم اختلاق أي نسبة فائدة أو هامش ربح'
+      ]
+    : [
+        'Aucune localisation géographique assumée par défaut',
+        'Aucun secteur d’activité imposé d’office',
+        'Aucune forme juridique prédéfinie (SUARL, SARL...)',
+        'Aucun statut de diplôme ou d’âge assumé',
+        'Aucun taux d’intérêt ou marge financière inventé'
+      ];
+
+  const summaryParts: string[] = [];
+  if (detectedAmount) summaryParts.push(`${detectedAmount.toLocaleString('fr-FR')} DT`);
+  if (purpose) summaryParts.push(purpose);
+  if (sector) summaryParts.push(sector);
+  if (location) summaryParts.push(location);
+
   const summaryText = language === 'ar'
-    ? (detectedAmount > 0
-        ? `الطلب المحدد: ${detectedAmount.toLocaleString('fr-FR')} د لـ ${purpose} في ولاية ${location}. يرجى تحديد مساهمتك الذاتية.`
-        : `مشروع محدد لـ ${purpose} في ولاية ${location}. يرجى تحديد المبلغ المطلوب ومساهمتك الذاتية.`)
-    : (detectedAmount > 0
-        ? `Demande identifiée: ${detectedAmount.toLocaleString('fr-FR')} DT pour ${purpose} (${sector}) à ${location}. Veuillez préciser votre apport personnel.`
-        : `Projet identifié pour ${purpose} (${sector}) à ${location}. Veuillez préciser le montant et votre apport personnel.`);
+    ? (summaryParts.length > 0
+        ? `المعطيات المكتشفة في نصكم: ${summaryParts.join(' • ')}. يرجى استكمال المعطيات الناقصة في خطوة التأكيد.`
+        : `لم يتم التعرف على معطيات دقيقة في النص. يرجى مراجعة وتحديد التفاصيل في شاشة التأكيد.`)
+    : (summaryParts.length > 0
+        ? `Paramètres identifiés dans votre texte : ${summaryParts.join(' • ')}. Veuillez compléter ou corriger les éléments manquants ci-dessous.`
+        : `Aucun paramètre chiffré ou sectoriel précis n'a pu être extrait avec certitude. Veuillez renseigner directement votre projet ci-dessous.`);
 
   return {
-    purpose,
     financingRequested: detectedAmount,
     totalProjectCost: detectedAmount,
-    userContribution: 0,
+    userContribution: undefined,
+    purpose,
     sector,
     location,
-    businessStage: 'idea_project',
+    businessStage,
     missingCriticalFields,
+    unassumedFields,
     summaryText
   };
 }
@@ -153,34 +205,39 @@ User input: "${query}"
 
 Strict extraction discipline:
 - Extract ONLY what the user explicitly stated or directly implied. NEVER fabricate unstated numbers.
-- financingRequested: numerical amount in Tunisian Dinars (TND / DT). If user writes 80 000 DT, extract 80000. If 80k, extract 80000. If not mentioned, set to 0.
-- totalProjectCost: extract ONLY if stated. If not stated, set equal to financingRequested.
-- userContribution: extract ONLY if stated. If NOT stated, set to 0 and add "apport_personnel" to missingCriticalFields.
-- purpose: one of ['creation', 'equipment', 'working_capital', 'expansion', 'agriculture', 'innovation_rd', 'export'].
-- sector: one of ['industry', 'services', 'agriculture_agribusiness', 'ict_tech', 'crafts_trades', 'commerce', 'renewable_energy', 'tourism', 'other']. If unclear, add "secteur_activite" to missingCriticalFields.
-- location: exact Tunisian governorate if identifiable (e.g. Sousse, Tunis, Sfax, Kasserine, etc.), or empty string "" if not mentioned. If unmentioned, add "gouvernorat" to missingCriticalFields.
-- businessStage: one of ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'].
-- missingCriticalFields: array of strings explicitly listing what is missing from the user's description to evaluate eligibility (e.g., 'apport_personnel', 'diplome_universitaire', 'garanties_disponibles', 'forme_juridique').
+- financingRequested: numerical amount in Tunisian Dinars (TND / DT) if stated, or null if not stated.
+- totalProjectCost: numerical amount in TND if explicitly stated, or null if not stated.
+- userContribution: numerical amount in TND if explicitly stated, or null if not stated.
+- purpose: one of ['creation', 'equipment', 'working_capital', 'expansion', 'agriculture', 'innovation_rd', 'export'] ONLY IF explicitly indicated. If not indicated, return null and add "objet_financement" to missingCriticalFields.
+- sector: one of ['industry', 'services', 'agriculture_agribusiness', 'ict_tech', 'crafts_trades', 'commerce', 'renewable_energy', 'tourism', 'other'] ONLY IF indicated. If not indicated, return null and add "secteur_activite" to missingCriticalFields.
+- location: exact Tunisian governorate if identifiable (e.g. Sousse, Tunis, Sfax, Kasserine, etc.), or null if not mentioned. Do NOT assume Tunis by default. If unmentioned, return null and add "gouvernorat" to missingCriticalFields.
+- businessStage: one of ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'] ONLY IF indicated. If not indicated, return null and add "stade_avancement" to missingCriticalFields.
+- missingCriticalFields: array of strings explicitly listing what is missing from the user's description to evaluate eligibility (e.g., 'montant_financement', 'apport_personnel', 'objet_financement', 'secteur_activite', 'gouvernorat', 'stade_avancement').
+- unassumedFields: array of strings stating what assumptions Mizen intentionally did NOT make (e.g., 'Localisation non assumée', 'Secteur non assumé', 'Forme juridique non assumée', 'Diplôme non assumé').
 - summaryText: objective 1-2 sentence confirmation of detected parameters in ${language === 'ar' ? 'Arabic' : 'French'}, noting what still needs to be specified.`,
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            financingRequested: { type: Type.NUMBER },
-            totalProjectCost: { type: Type.NUMBER },
-            userContribution: { type: Type.NUMBER },
-            purpose: { type: Type.STRING },
-            sector: { type: Type.STRING },
-            location: { type: Type.STRING },
-            businessStage: { type: Type.STRING },
+            financingRequested: { type: Type.NUMBER, nullable: true },
+            totalProjectCost: { type: Type.NUMBER, nullable: true },
+            userContribution: { type: Type.NUMBER, nullable: true },
+            purpose: { type: Type.STRING, nullable: true },
+            sector: { type: Type.STRING, nullable: true },
+            location: { type: Type.STRING, nullable: true },
+            businessStage: { type: Type.STRING, nullable: true },
             missingCriticalFields: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            unassumedFields: {
               type: Type.ARRAY,
               items: { type: Type.STRING }
             },
             summaryText: { type: Type.STRING }
           },
-          required: ['financingRequested', 'purpose', 'sector', 'missingCriticalFields', 'summaryText']
+          required: ['missingCriticalFields', 'summaryText']
         }
       }
     });
@@ -257,54 +314,37 @@ Keep tone objective, encouraging, and anchored in Tunisian realities (TMM, SOTUG
 
 /**
  * 3. Document Analysis & Contradiction Detection
- * Analyzes uploaded business plan, RNE, or quote text against user profile
+ * Analyzes uploaded business plan, RNE, or quote text against user profile.
+ * When AI is unavailable or fails, returns explicit 'unavailable' status.
+ * NEVER fabricates extracted data or claims false consistency.
  */
 app.post('/api/gemini/analyze-document', async (req, res) => {
+  const { language = 'fr' } = req.body || {};
   try {
-    const { documentText, applicantProfile, language = 'fr' } = req.body;
+    const { documentText, applicantProfile } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
       return res.json({
-        success: true,
-        source: 'fallback',
-        analysis: {
-          identifiedFields: language === 'ar'
-            ? [
-                { key: 'coût_projet', label: 'كلفة المشروع', extractedValue: 'محددة في الوثيقة', status: 'matches_profile' },
-                { key: 'forme_juridique', label: 'الشكل القانوني', extractedValue: 'للتثبت عبر السجل الوطني', status: 'neutral' }
-              ]
-            : [
-                { key: 'coût_projet', label: 'Coût du projet', extractedValue: 'Détecté dans le document', status: 'matches_profile' },
-                { key: 'forme_juridique', label: 'Forme juridique', extractedValue: 'À vérifier avec le RNE', status: 'neutral' }
-              ],
-          contradictions: [],
-          missingMandatoryDocs: language === 'ar'
-            ? ['مضمون حديث من السجل الوطني للمؤسسات (أقل من 3 أشهر)', 'شهادة في عدم التفليس أو التسوية القضائية', 'فواتير تقديرية مؤشر عليها']
-            : ['Extrait RNE récent (- de 3 mois)', 'Attestation de non-faillite', 'Factures proforma signées'],
-          recommendations: language === 'ar'
-            ? [
-                'تأكد من تطابق المبالغ المذكورة في الفواتير التقديرية بدقة مع مبلغ التمويل المطلوب.',
-                'تحقق من تطابق التسمية الاجتماعية وموضوع النشاط المسجل بالسجل الوطني للمؤسسات.'
-              ]
-            : [
-                'Assurez-vous que les montants des devis correspondent exactement au montant du prêt demandé.',
-                'Vérifiez la concordance entre la raison sociale et l’objet statutaire au RNE.'
-              ]
-        }
+        success: false,
+        status: 'unavailable',
+        error: language === 'ar'
+          ? 'التحليل الآلي للوثائق غير متوفر حالياً. الفحص اليدوي ضروري.'
+          : 'Analyse automatique indisponible. Vérification manuelle nécessaire.',
+        reason: 'ai_service_unreachable'
       });
     }
 
     const prompt = `You are Mizen's document analysis and compliance checker for Tunisian financing applications.
 The applicant declared:
-- Project Cost: ${applicantProfile?.totalProjectCost} DT
-- Financing Requested: ${applicantProfile?.financingRequested} DT
-- User Contribution: ${applicantProfile?.userContribution} DT
-- Purpose: ${applicantProfile?.purpose}
-- Sector: ${applicantProfile?.sector}
-- Business Stage: ${applicantProfile?.businessStage}
-- Location: ${applicantProfile?.location}
-- Legal Form: ${applicantProfile?.legalStructure}
+- Project Cost: ${applicantProfile?.totalProjectCost ?? 'Non spécifié'} DT
+- Financing Requested: ${applicantProfile?.financingRequested ?? 'Non spécifié'} DT
+- User Contribution: ${applicantProfile?.userContribution ?? 'Non spécifié'} DT
+- Purpose: ${applicantProfile?.purpose ?? 'Non spécifié'}
+- Sector: ${applicantProfile?.sector ?? 'Non spécifié'}
+- Business Stage: ${applicantProfile?.businessStage ?? 'Non spécifié'}
+- Location: ${applicantProfile?.location ?? 'Non spécifié'}
+- Legal Form: ${applicantProfile?.legalStructure ?? 'Non spécifié'}
 
 Here is the document excerpt provided:
 """${documentText}"""
@@ -358,39 +398,19 @@ Task:
     const parsed = JSON.parse(response.text || '{}');
     return res.json({
       success: true,
+      status: 'analyzed',
       source: 'gemini',
       analysis: parsed
     });
   } catch (err) {
-    console.warn('Gemini analyze-document error, returning fallback:', err);
-    const { language = 'fr' } = req.body || {};
+    console.warn('Gemini analyze-document error, returning explicit unavailable status:', err);
     return res.json({
-      success: true,
-      source: 'fallback',
-      analysis: {
-        identifiedFields: language === 'ar'
-          ? [
-              { key: 'coût_projet', label: 'كلفة المشروع', extractedValue: 'محددة في الوثيقة', status: 'matches_profile' },
-              { key: 'forme_juridique', label: 'الشكل القانوني', extractedValue: 'للتثبت عبر السجل الوطني', status: 'neutral' }
-            ]
-          : [
-              { key: 'coût_projet', label: 'Coût du projet', extractedValue: 'Détecté dans le document', status: 'matches_profile' },
-              { key: 'forme_juridique', label: 'Forme juridique', extractedValue: 'À vérifier avec le RNE', status: 'neutral' }
-            ],
-        contradictions: [],
-        missingMandatoryDocs: language === 'ar'
-          ? ['مضمون حديث من السجل الوطني للمؤسسات (أقل من 3 أشهر)', 'شهادة في عدم التفليس أو التسوية القضائية', 'فواتير تقديرية مؤشر عليها']
-          : ['Extrait RNE récent (- de 3 mois)', 'Attestation de non-faillite', 'Factures proforma signées'],
-        recommendations: language === 'ar'
-          ? [
-              'تأكد من تطابق المبالغ المذكورة في الفواتير التقديرية بدقة مع مبلغ التمويل المطلوب.',
-              'تحقق من تطابق التسمية الاجتماعية وموضوع النشاط المسجل بالسجل الوطني للمؤسسات.'
-            ]
-          : [
-              'Assurez-vous que les montants des devis correspondent exactement au montant du prêt demandé.',
-              'Vérifiez la concordance entre la raison sociale et l’objet statutaire au RNE.'
-            ]
-      }
+      success: false,
+      status: 'unavailable',
+      error: language === 'ar'
+        ? 'التحليل الآلي للوثائق غير متوفر حالياً. الفحص اليدوي ضروري.'
+        : 'Analyse automatique indisponible. Vérification manuelle nécessaire.',
+      reason: 'analysis_failed'
     });
   }
 });

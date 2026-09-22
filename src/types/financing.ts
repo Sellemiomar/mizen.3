@@ -89,25 +89,25 @@ export type LegalStructure =
   | 'not_yet_created';
 
 export interface ApplicantProfile {
-  // Core financial figures (Strict Mizen 1 separation)
-  totalProjectCost: number;       // Coût total du projet (TND)
-  userContribution: number;       // Apport personnel (TND)
-  financingRequested: number;     // Financement demandé (TND)
+  // Core financial figures (Strict Mizen separation)
+  totalProjectCost?: number;       // Coût total du projet (TND)
+  userContribution?: number;       // Apport personnel (TND)
+  financingRequested?: number;     // Financement demandé (TND)
 
-  purpose: FinancingPurpose;
-  businessStage: BusinessStage;
+  purpose?: FinancingPurpose;
+  businessStage?: BusinessStage;
   businessAgeYears?: number;
-  sector: BusinessSector;
-  location: string;               // Gouvernorat (e.g. 'Tunis', 'Sousse', 'Kasserine', etc.)
-  isRegionalDevelopmentZone: boolean; // Zone d'encouragement au développement régional (ZDR)
-  legalStructure: LegalStructure;
+  sector?: BusinessSector;
+  location?: string;               // Gouvernorat (e.g. 'Tunis', 'Sousse', 'Kasserine', etc.)
+  isRegionalDevelopmentZone?: boolean; // Zone d'encouragement au développement régional (ZDR)
+  legalStructure?: LegalStructure;
 
   // Key qualifying traits
-  hasStartupActLabel: boolean;
+  hasStartupActLabel?: boolean;
   applicantAge?: number;
-  hasHigherEducationDegree: boolean;
-  collateralPreference: 'available' | 'limited' | 'none';
-  structurePreference: 'standard' | 'islamic' | 'any';
+  hasHigherEducationDegree?: boolean;
+  collateralPreference?: 'available' | 'limited' | 'none';
+  structurePreference?: 'standard' | 'islamic' | 'any';
 
   // Context notes from user
   projectDescription?: string;
@@ -214,6 +214,10 @@ export interface FinancingProgram {
     fr: string;
     ar: string;
   }[];
+
+  // Data-driven matching flags (avoids hardcoded program IDs in matching engine)
+  hasRegionalDevelopmentBonus?: boolean;
+  accessibleWithoutHeavyCollateral?: boolean;
 
   // Traceability & Verification
   verification: VerificationRecord;
