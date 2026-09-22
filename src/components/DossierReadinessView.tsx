@@ -34,16 +34,12 @@ export const DossierReadinessView: React.FC<DossierReadinessViewProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
 
-  // Default standard Tunisian bank & SME documentation checklist
-  const [completedDocs, setCompletedDocs] = useState<Record<string, boolean>>({
-    'doc-cin': true,
-    'doc-devis': false,
-    'doc-rne': false,
-    'doc-plan': false,
-    'doc-cnss': false,
-    'doc-diplome': Boolean(applicantProfile.hasHigherEducationDegree),
-    'doc-bail': false
-  });
+  // Documentation checklist begins empty without fabricated defaults: user marks what is ready
+  const [completedDocs, setCompletedDocs] = useState<Record<string, boolean>>({});
+
+  const [currentProgramId, setCurrentProgramId] = useState<string>(
+    selectedProgram?.id || (allPrograms.length > 0 ? allPrograms[0].id : '')
+  );
 
   const [aiAdvice, setAiAdvice] = useState<{ checklist?: string[]; questionsForOfficer?: string[] } | null>(null);
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
@@ -52,7 +48,7 @@ export const DossierReadinessView: React.FC<DossierReadinessViewProps> = ({
     setCompletedDocs(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const activeProgram = selectedProgram || allPrograms[0];
+  const activeProgram = allPrograms.find(p => p.id === currentProgramId) || selectedProgram || allPrograms[0];
 
   const standardChecklist = [
     {
@@ -131,13 +127,27 @@ export const DossierReadinessView: React.FC<DossierReadinessViewProps> = ({
       {/* Header */}
       <div className="pb-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold uppercase tracking-wider">
               {language === 'ar' ? 'جاهزية الملف' : 'Accompagnement Mizen'}
             </span>
-            <span className="text-xs text-slate-500">
-              {activeProgram.name[language]}
-            </span>
+            <div className="flex items-center gap-1.5 text-xs text-slate-700">
+              <label htmlFor="dossier-program-select" className="text-slate-500 font-medium">
+                {language === 'ar' ? 'البرنامج المستهدف :' : 'Dispositif ciblé :'}
+              </label>
+              <select
+                id="dossier-program-select"
+                value={currentProgramId}
+                onChange={(e) => setCurrentProgramId(e.target.value)}
+                className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+              >
+                {allPrograms.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name[language]}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-display">
             {t.readinessTitle}

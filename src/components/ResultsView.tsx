@@ -124,7 +124,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="flex items-start gap-2.5">
           <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <span className="text-slate-200 leading-relaxed">
-            <strong className="text-amber-300 font-bold">Principe d'intégrité Mizen :</strong> Aucun résultat n'est garanti. Mizen évalue la compatibilité technique selon les barèmes officiels vérifiés de chaque institution.
+            <strong className="text-amber-300 font-bold">
+              {language === 'ar' ? 'مبدأ الشفافية والنزاهة :' : "Principe d'intégrité Mizen :"}
+            </strong>{' '}
+            {language === 'ar'
+              ? 'التطابق مبني على المعايير والشروط العامة المتاحة ولا يشكل بأي حال من الأحوال موافقة بنكية أو ضماناً لمنح التمويل.'
+              : 'Le matching est basé sur les critères disponibles et ne constitue en aucun cas un accord ou une garantie de financement.'}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">

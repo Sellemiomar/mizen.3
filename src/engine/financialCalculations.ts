@@ -180,8 +180,8 @@ export function calculateFinancingCost(
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Fourchette de sensibilité indicative : environ ${monthlyLow.toLocaleString('fr-FR')} DT à ${monthlyHigh.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Formule réglementaire : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + marge bancaire négociée (+${minSpread}% à +${maxSpread}%).`,
-        ar: `نطاق تقديري استئناسي : بين ${monthlyLow.toLocaleString('fr-FR')} د و ${monthlyHigh.toLocaleString('fr-FR')} د شهرياً على ${duration} شهراً. الصيغة القانونية : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش بنكي (+${minSpread}% إلى +${maxSpread}%).`
+        fr: `Simulation indicative de Mizen — ce n'est pas un taux ni une offre du financeur. Fourchette de sensibilité indicative : environ ${monthlyLow.toLocaleString('fr-FR')} DT à ${monthlyHigh.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Formule réglementaire : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + marge bancaire négociée (+${minSpread}% à +${maxSpread}%).`,
+        ar: `محاكاة استئناسية من ميزان — لا تعتبر نسبة معتمدة أو عرضاً من الممول. نطاق تقديري استئناسي : بين ${monthlyLow.toLocaleString('fr-FR')} د و ${monthlyHigh.toLocaleString('fr-FR')} د شهرياً على ${duration} شهراً. الصيغة القانونية : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش بنكي (+${minSpread}% إلى +${maxSpread}%).`
       },
       unreliableReason: {
         fr: 'Taux indexé sur le TMM de la Banque Centrale de Tunisie : la marge exacte et les frais de dossier dépendent exclusivement de la décision finale du comité de crédit.',
@@ -240,12 +240,12 @@ export function calculateFinancingCost(
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: 'Marge bénéficiaire fixée par contrat Mourabaha — à confirmer auprès de la banque. En finance islamique, le prix de revente et l\'échéancier dépendent des factures pro-forma agréées par le comité de conformité.',
-        ar: 'هامش ربح محدد بموجب عقد المرابحة — رهن التأكيد من البنك. في الصيرفة الإسلامية، يتحدد ثمن البيع وجدول الأقساط بناءً على فواتير المزود المعتمدة من هيئة الرقابة الشرعية.'
+        fr: 'Marge/prix final à confirmer auprès du financeur. Marge bénéficiaire fixée par contrat Mourabaha — à confirmer auprès de la banque. En finance islamique, le prix de revente et l\'échéancier dépendent des factures pro-forma agréées par le comité de conformité.',
+        ar: 'هامش الربح والسعر النهائي رهن التأكيد من الممول. هامش ربح محدد بموجب عقد المرابحة — رهن التأكيد من البنك. في الصيرفة الإسلامية، يتحدد ثمن البيع وجدول الأقساط بناءً على فواتير المزود المعتمدة من هيئة الرقابة الشرعية.'
       },
       unreliableReason: {
-        fr: 'Marge bénéficiaire fixée par contrat Mourabaha — simulation de remboursement chiffrée impossible sans offre formelle de la banque.',
-        ar: 'هامش الربح يحدد بموجب عقد المرابحة — يتعذر احتساب قسط محدد دون عرض تمويل رسمي من المصرف.'
+        fr: 'Marge/prix final à confirmer auprès du financeur — simulation de remboursement chiffrée impossible sans offre formelle de la banque.',
+        ar: 'هامش الربح والسعر النهائي رهن التأكيد من الممول — يتعذر احتساب قسط محدد دون عرض تمويل رسمي من المصرف.'
       }
     };
   }
