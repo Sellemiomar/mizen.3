@@ -27,6 +27,9 @@ export const FIELD_VERIFICATION_LABELS: Record<string, { fr: string; ar: string 
   regionalBonusRate: { fr: "Prime ZDR selon délégation exacte", ar: "منحة التنمية الجهوية الدقيقة" },
   collegeDecision: { fr: "Décision du Collège des Startups", ar: "قرار لجنة علامة المؤسسات الناشئة" },
   regionalQuota: { fr: "Quota budgétaire du bureau d'emploi", ar: "الحصة المالية لمكتب التشغيل" },
+  applicationSteps: { fr: "Circuit & étapes d'instruction", ar: "مسار دراسة الملف" },
+  requiredDocuments: { fr: "Checklist documentaire requise", ar: "قائمة الوثائق المطلوبة" },
+  caveats: { fr: "Délais réels & contraintes de décaissement", ar: "الآجال الفعلية وضوابط الصرف" },
 };
 
 export function getFieldLabel(fieldKey: string, language: Language): string {

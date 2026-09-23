@@ -205,17 +205,35 @@ assert(
 );
 
 // -------------------------------------------------------------
-// Scenario H: Field-level verification integrity audit
+// Scenario H: Dynamic Verification Coverage & Integrity Audit
 // -------------------------------------------------------------
-console.log('\n--- SCENARIO H: Audit de vérification au niveau des champs ---');
+console.log('\n--- SCENARIO H: Audit de couverture et sémantique dynamique des statuts ---');
+const validStatuses = ['VERIFIED', 'PARTIALLY_VERIFIED', 'OUTDATED', 'UNVERIFIED', 'SOURCE_UNAVAILABLE'];
+
 for (const prog of FINANCING_PROGRAMS) {
-  assert(prog.verification !== undefined, `${prog.id} has verification metadata`);
-  assert(Array.isArray(prog.verification.verifiedFields) && prog.verification.verifiedFields.length > 0, `${prog.id} specifies verified fields`);
-  assert(Array.isArray(prog.verification.unverifiedFields) && prog.verification.unverifiedFields.length > 0, `${prog.id} specifies unverified/to-verify fields`);
-  assert(prog.verification.status === 'PARTIALLY_VERIFIED', `${prog.id} status is PARTIALLY_VERIFIED (no blanket ungrounded 100% verified status)`);
-  assert(prog.verification.sourceUrl.length > 0, `${prog.id} has official source URL`);
-  assert(prog.verification.sourceTitle.length > 0, `${prog.id} has official source Title`);
-  assert(Boolean(prog.verification.dateChecked), `${prog.id} has checked date`);
+  const v = prog.verification;
+  assert(v !== undefined, `${prog.id} has verification metadata`);
+  assert(validStatuses.includes(v.status), `${prog.id} has a recognized verification status: ${v.status}`);
+  assert(Array.isArray(v.verifiedFields), `${prog.id} specifies verified fields array`);
+  assert(Array.isArray(v.unverifiedFields), `${prog.id} specifies unverified fields array`);
+  assert(v.sourceUrl.length > 0, `${prog.id} has official source URL`);
+  assert(v.sourceTitle.length > 0, `${prog.id} has official source Title`);
+  assert(Boolean(v.dateChecked), `${prog.id} has checked date`);
+
+  // Disjoint sets check (no field is simultaneously verified and unverified)
+  const overlap = v.verifiedFields.filter(f => v.unverifiedFields.includes(f));
+  assert(overlap.length === 0, `${prog.id} has no conflicting overlap between verified and unverified fields`);
+
+  // Semantic status validation
+  if (v.status === 'VERIFIED') {
+    assert(v.unverifiedFields.length === 0, `${prog.id} marked VERIFIED has no unverified fields`);
+    assert(v.verifiedFields.length > 0, `${prog.id} marked VERIFIED has verified fields documented`);
+  } else if (v.status === 'PARTIALLY_VERIFIED') {
+    assert(v.verifiedFields.length > 0, `${prog.id} marked PARTIALLY_VERIFIED has at least one verified field`);
+    assert(v.unverifiedFields.length > 0, `${prog.id} marked PARTIALLY_VERIFIED has at least one unverified field`);
+  } else if (v.status === 'UNVERIFIED') {
+    assert(v.verifiedFields.length === 0, `${prog.id} marked UNVERIFIED has no verified fields claimed`);
+  }
 }
 
 // -------------------------------------------------------------

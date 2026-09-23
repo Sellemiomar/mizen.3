@@ -14,6 +14,7 @@ import { FinancingProgram, Provider, MatchResult, Language, ApplicantProfile } f
 import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
+import { getFieldLabel } from '../utils/verificationLabels';
 
 interface ComparisonViewProps {
   programs: FinancingProgram[];
@@ -109,6 +110,46 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
           </thead>
 
           <tbody className="divide-y divide-slate-100">
+            {/* 0. Traceability & Field Verification Breakdown */}
+            <tr className="bg-slate-50/80">
+              <td className="p-4 font-bold text-slate-800 bg-slate-100/70 text-xs">
+                {language === 'ar' ? 'توثيق الحقول والمصدر' : 'Traçabilité & Vérification'}
+              </td>
+              {programs.map((p) => (
+                <td key={p.id} className="p-4 text-xs space-y-2">
+                  <div className="text-[11px] text-slate-500">
+                    <span className="font-semibold">{language === 'ar' ? 'المصدر :' : 'Source :'}</span> {p.verification.sourceTitle}
+                  </div>
+                  <div className="space-y-1.5">
+                    {p.verification.verifiedFields.length > 0 && (
+                      <div className="p-1.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-900 text-[10px]">
+                        <strong className="block font-bold mb-0.5">{language === 'ar' ? 'مؤكد رسمياً :' : 'Vérifié officiel :'}</strong>
+                        <div className="flex flex-wrap gap-1">
+                          {p.verification.verifiedFields.map(f => (
+                            <span key={f} className="px-1 rounded bg-white text-emerald-800 border border-emerald-200">
+                              ✓ {getFieldLabel(f, language)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {p.verification.unverifiedFields.length > 0 && (
+                      <div className="p-1.5 rounded bg-amber-50 border border-amber-200 text-amber-900 text-[10px]">
+                        <strong className="block font-bold mb-0.5">{language === 'ar' ? 'يخضع لتأكيد الفرع :' : 'À vérifier en agence :'}</strong>
+                        <div className="flex flex-wrap gap-1">
+                          {p.verification.unverifiedFields.map(f => (
+                            <span key={f} className="px-1 rounded bg-white text-amber-800 border border-amber-200">
+                              ⚠ {getFieldLabel(f, language)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </td>
+              ))}
+            </tr>
+
             {/* 1. Category */}
             <tr>
               <td className="p-4 font-bold text-slate-700 bg-slate-50/50">

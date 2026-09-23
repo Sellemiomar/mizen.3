@@ -221,8 +221,14 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
               <div className="p-4 rounded-xl border border-slate-200 bg-white">
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <span className="text-slate-500">Différé (Franchise)</span>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                    ✓ Réglementaire
+                  <span className={`text-[10px] font-semibold px-1 py-0.2 rounded border ${
+                    program.verification.verifiedFields.includes('gracePeriodMonths') || program.verification.verifiedFields.includes('gracePeriodMonthsMax')
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : 'text-amber-800 bg-amber-50 border-amber-200'
+                  }`}>
+                    {program.verification.verifiedFields.includes('gracePeriodMonths') || program.verification.verifiedFields.includes('gracePeriodMonthsMax')
+                      ? '✓ Réglementaire'
+                      : '⚠ Selon comité'}
                   </span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">
@@ -239,8 +245,14 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
                 <ShieldCheck className="w-4 h-4 text-blue-700" />
                 <span>Garanties & Sûretés exigées</span>
               </h3>
-              <span className="text-[10px] font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                {program.verification.verifiedFields.includes('guaranteeRequirements') ? '✓ Source certifiée' : 'Conditions de banque'}
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                program.verification.verifiedFields.includes('guaranteeRequirements')
+                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                  : 'text-amber-800 bg-amber-50 border-amber-200'
+              }`}>
+                {program.verification.verifiedFields.includes('guaranteeRequirements')
+                  ? '✓ Source réglementaire vérifiée'
+                  : '⚠ Exigences variables selon l’agence'}
               </span>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed">
@@ -251,7 +263,12 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
           {/* Target Audience & Eligible Sectors */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="p-5 rounded-xl border border-slate-200 bg-white">
-              <h4 className="font-bold text-slate-900 mb-2">À qui s’adresse ce dispositif ?</h4>
+              <div className="flex items-center justify-between gap-1 mb-2">
+                <h4 className="font-bold text-slate-900">À qui s’adresse ce dispositif ?</h4>
+                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
+                  {program.verification.verifiedFields.includes('targetAudience') ? '✓ Critères d\'accès' : 'Indicatif'}
+                </span>
+              </div>
               <p className="text-slate-600 leading-relaxed mb-3">
                 {program.targetAudience[language]}
               </p>
@@ -265,7 +282,12 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
             </div>
 
             <div className="p-5 rounded-xl border border-slate-200 bg-white">
-              <h4 className="font-bold text-slate-900 mb-2">Secteurs admis & Dépenses éligibles</h4>
+              <div className="flex items-center justify-between gap-1 mb-2">
+                <h4 className="font-bold text-slate-900">Secteurs admis & Dépenses éligibles</h4>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                  {program.verification.verifiedFields.includes('purposes') ? '✓ Nomenclature légale' : 'Indicatif'}
+                </span>
+              </div>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {program.purposes.map(pur => (
                   <span key={pur} className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 font-semibold">
@@ -281,9 +303,20 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
 
           {/* Step-by-Step Application Process */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
-              {language === 'ar' ? 'مراحل تقديم ومعالجة الملف' : 'Étapes concrètes de demande & instruction'}
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                {language === 'ar' ? 'مراحل تقديم ومعالجة الملف' : 'Étapes concrètes de demande & instruction'}
+              </h3>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                program.verification.verifiedFields.includes('applicationSteps')
+                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                  : 'text-amber-800 bg-amber-50 border-amber-200'
+              }`}>
+                {program.verification.verifiedFields.includes('applicationSteps')
+                  ? '✓ Processus réglementaire'
+                  : '⚠ Circuit type (délais soumis à l\'agence)'}
+              </span>
+            </div>
             <div className="space-y-2.5">
               {program.applicationSteps.map((stepItem, idx) => (
                 <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
@@ -301,10 +334,21 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
 
           {/* Required Documents Checklist */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-600" />
-              <span>{language === 'ar' ? 'الوثائق الإدارية والمالية المطلوبة' : 'Dossier documentaire à fournir'}</span>
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-600" />
+                <span>{language === 'ar' ? 'الوثائق الإدارية والمالية المطلوبة' : 'Dossier documentaire à fournir'}</span>
+              </h3>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                program.verification.verifiedFields.includes('requiredDocuments')
+                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                  : 'text-amber-800 bg-amber-50 border-amber-200'
+              }`}>
+                {program.verification.verifiedFields.includes('requiredDocuments')
+                  ? '✓ Checklist officielle'
+                  : '⚠ Liste indicative (pièces complémentaires possibles)'}
+              </span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {program.requiredDocuments.map((docItem, idx) => (
                 <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center gap-2">
