@@ -18,6 +18,7 @@ import { FinancingProgram, Provider, MatchReason, Language, ApplicantProfile } f
 import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
+import { getFieldLabel } from '../utils/verificationLabels';
 
 interface ProgramDetailModalProps {
   program: FinancingProgram;
@@ -139,12 +140,12 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
               {program.verification.verifiedFields.length > 0 && (
                 <div>
                   <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">
-                    {language === 'ar' ? 'معايير رسمية مؤكدة' : 'Données certifiées conformes :'}
+                    {language === 'ar' ? 'معايير رسمية مؤكدة :' : 'Données certifiées conformes :'}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {program.verification.verifiedFields.map(f => (
                       <span key={f} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium">
-                        ✓ {f}
+                        ✓ {getFieldLabel(f, language)}
                       </span>
                     ))}
                   </div>
@@ -154,12 +155,12 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
               {program.verification.unverifiedFields.length > 0 && (
                 <div>
                   <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
-                    {language === 'ar' ? 'نقاط متغيرة تخضع للجنة التمويل' : 'Variables soumises au comité de crédit :'}
+                    {language === 'ar' ? 'نقاط متغيرة تخضع للجنة التمويل :' : 'Variables soumises au comité de crédit :'}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {program.verification.unverifiedFields.map(f => (
                       <span key={f} className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium">
-                        ⚠ {f}
+                        ⚠ {getFieldLabel(f, language)}
                       </span>
                     ))}
                   </div>

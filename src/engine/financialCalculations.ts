@@ -142,50 +142,31 @@ export function calculateFinancingCost(
   }
 
   // 3. Variable rates indexed to BCT TMM (e.g. BFPME, Commercial Banks)
-  // Shows sensitivity range (TMM + 2.5% to TMM + 3.5%) rather than a single fake-precise number
+  // Strict trust model: Automatic calculation suspended until real-time BCT TMM and bank margin are officially sourced.
   if (program.rateType === 'variable_tmm') {
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
       : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
 
-    const minSpread = 2.5;
-    const maxSpread = 3.5;
-    const lowRate = CURRENT_TUNISIAN_TMM_PERCENT + minSpread;  // ~10.49%
-    const highRate = CURRENT_TUNISIAN_TMM_PERCENT + maxSpread; // ~11.49%
-
-    const monthlyRateLow = lowRate / 100 / 12;
-    const monthlyRateHigh = highRate / 100 / 12;
-    const n = duration;
-
-    const monthlyLow = Math.round(
-      (financingRequested * monthlyRateLow * Math.pow(1 + monthlyRateLow, n)) /
-      (Math.pow(1 + monthlyRateLow, n) - 1)
-    );
-    const monthlyHigh = Math.round(
-      (financingRequested * monthlyRateHigh * Math.pow(1 + monthlyRateHigh, n)) /
-      (Math.pow(1 + monthlyRateHigh, n) - 1)
-    );
-
     return {
-      canCalculateReliably: false, // Variable TMM cannot be reliably fixed upfront as a quote
-      rateOrigin: 'estimated_market_spread',
+      canCalculateReliably: false, // Variable TMM cannot be reliably calculated upfront without current BCT quote & bank spread
+      rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: `Formule TMM BCT (${CURRENT_TUNISIAN_TMM_PERCENT}%) + Marge (${minSpread}% à ${maxSpread}%)`,
-        ar: `صيغة TMM البنك المركزي (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش (${minSpread}% إلى ${maxSpread}%)`
+        fr: 'Taux variable indexé TMM (simulation automatique désactivée)',
+        ar: 'نسبة متغيرة مرتبطة بـ TMM (المحاكاة التلقائية معطلة)'
       },
-      rateBenchmarkSource: TUNISIAN_TMM_BENCHMARK.name,
-      rateBenchmarkDate: `${TUNISIAN_TMM_BENCHMARK.referencePeriod} (TMM BCT actif : ${CURRENT_TUNISIAN_TMM_PERCENT}%)`,
-      monthlyPayment: undefined, // No single fake-precise quote
+      monthlyPayment: undefined, // No speculative numbers
       totalRepayment: undefined,
+      totalCostOfFinancing: undefined,
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Simulation indicative de Mizen — ce n'est pas un taux ni une offre du financeur. Fourchette de sensibilité indicative : environ ${monthlyLow.toLocaleString('fr-FR')} DT à ${monthlyHigh.toLocaleString('fr-FR')} DT/mois sur ${duration} mois. Formule réglementaire : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + marge bancaire négociée (+${minSpread}% à +${maxSpread}%).`,
-        ar: `محاكاة استئناسية من ميزان — لا تعتبر نسبة معتمدة أو عرضاً من الممول. نطاق تقديري استئناسي : بين ${monthlyLow.toLocaleString('fr-FR')} د و ${monthlyHigh.toLocaleString('fr-FR')} د شهرياً على ${duration} شهراً. الصيغة القانونية : TMM (${CURRENT_TUNISIAN_TMM_PERCENT}%) + هامش بنكي (+${minSpread}% إلى +${maxSpread}%).`
+        fr: "Taux variable indexé sur le TMM officiel de la Banque Centrale de Tunisie plus marge commerciale de l'établissement bancaire. Conformément à la politique d'intégrité de Mizen, aucune simulation automatique chiffrée n'est générée sans confirmation officielle du TMM actif et de la marge contractuelle convenue avec votre agence.",
+        ar: "نسبة متغيرة مرتبطة بمعدل السوق النقدية (TMM) للبنك المركزي التونسي بالإضافة إلى هامش البنك التجاري. التزاماً بقواعد الدقة والمصداقية في ميزان، تم تعليق المحاكاة الآلية للأقساط حتى التأكيد الرسمي لمعدل TMM الساري والهامش التعاقدي المحدد من الفرع البنكي."
       },
       unreliableReason: {
-        fr: 'Taux indexé sur le TMM de la Banque Centrale de Tunisie : la marge exacte et les frais de dossier dépendent exclusivement de la décision finale du comité de crédit.',
-        ar: 'النسبة متغيرة ومرتبطة بـ TMM البنك المركزي : الهامش الفعلي ومصاريف الملف يحددهما البنك بعد موافقة لجنة التمويل.'
+        fr: "Simulation chiffrée suspendue : le TMM et la marge bancaire exacte doivent être confirmés par votre agence.",
+        ar: "تم تعليق المحاكاة الرقمية : يجب تأكيد معدل TMM الساري والهامش البنكي الدقيق من فرعكم البنكي."
       }
     };
   }

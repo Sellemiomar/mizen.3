@@ -209,8 +209,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     minContributionPercent: 20,
     rateType: 'variable_tmm',
     rateDescription: {
-      fr: 'Taux variable : TMM BCT (7,99%) + marge bancaire (2,5% à 3,5%) selon notation du projet.',
-      ar: 'نسبة متغيرة : TMM البنك المركزي (7.99%) + هامش بنكي (2.5% إلى 3.5%) حسب تصنيف المشروع.'
+      fr: 'Taux variable indexé sur le TMM officiel de la BCT + marge bancaire selon notation du projet (à confirmer avec l’agence).',
+      ar: 'نسبة متغيرة مرتبطة بمعدل TMM للبنك المركزي التونسي + هامش بنكي وفق دراسة المشروع (يحدد مع الفرع).'
     },
     durationMonthsMin: 36,
     durationMonthsMax: 120,
@@ -464,16 +464,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: false,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.bts.com.tn/promoteurs-diplomes/',
       sourceTitle: 'BTS Bank - Conditions d’octroi des crédits aux diplômés',
       sourceType: 'bank_fiche',
       dateChecked: '2026-05-10',
-      verifiedFields: ['maxAmount', 'rateType', 'minContributionPercent', 'requiresDegree'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'rate', 'minContributionPercent', 'requiresDegree', 'durationMonths', 'gracePeriodMonths'],
+      unverifiedFields: ['guaranteeRequirements'],
       notes: {
-        fr: 'Données vérifiées via les circulaires de la BTS Bank en vigueur pour 2026.',
-        ar: 'تم التحقق من الشروط عبر منشور بنك التضامن المعمول به.'
+        fr: 'Plafond (150 000 DT), apport minimum (10%) et conditions de diplôme vérifiés via circulaire BTS. La caution ou garantie locale exacte reste soumise à la commission régionale.',
+        ar: 'تم التحقق من سقف 150 ألف د والتمويل الذاتي 10% والشهادة الجامعية. الضمان الشخصي أو العيني يحدده الفرع الجهوي.'
       },
       lastUpdateYear: 2026
     }
@@ -583,16 +583,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: true,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.sotugar.com.tn/mecanismes-de-garantie/',
       sourceTitle: 'SOTUGAR - Mécanismes de garantie des investissements PME',
       sourceType: 'official_portal',
       dateChecked: '2026-07-01',
-      verifiedFields: ['maxAmount', 'guaranteeRequirements', 'eligibilityCriteria'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'rate', 'guaranteeRequirements', 'eligibilityCriteria'],
+      unverifiedFields: ['partnerBankApproval'],
       notes: {
-        fr: 'Taux de couverture et conditions validés sur le portail officiel du régulateur.',
-        ar: 'تم التثبت من نسب التغطية وشروط الأهلية من البوابة الرسمية.'
+        fr: 'Taux de couverture (jusqu’à 75%) et commissions vérifiés sur le portail SOTUGAR. L’octroi effectif reste conditionné à l’accord préalable de la banque partenaire.',
+        ar: 'تم التثبت من نسب التغطية وعمولة الضمان من البوابة الرسمية. إصدار الضمان مشروط بالموافقة المسبقة للبنك المقرض.'
       },
       lastUpdateYear: 2026
     }
@@ -694,16 +694,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: true,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.tunisieindustrie.nat.tn/fr/doc.asp?mcat=12&mrub=88',
       sourceTitle: 'APII - Mécanismes FOPRODI & Décentralisation',
       sourceType: 'decree_law',
       dateChecked: '2026-04-18',
-      verifiedFields: ['purposes', 'rateType', 'gracePeriodMonthsMax', 'targetAudience'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'rate', 'durationMonthsMax', 'gracePeriodMonthsMax', 'minContributionPercent', 'purposes'],
+      unverifiedFields: ['regionalBonusRate'],
       notes: {
-        fr: 'Conditions et plafonds alignés avec la loi de l’investissement en Tunisie.',
-        ar: 'متطابق مع قانون الاستثمار ومناشير الدعم الجهوي.'
+        fr: 'Plafond de dotation (jusqu’à 800 000 DT) et taux symbolique (1-3%) vérifiés par décret APII. Le taux exact de la prime dépend de la délégation de rattachement.',
+        ar: 'سقف المساهمة ونسبة الفائدة الرمزية محددة بالقانون. النسبة الدقيقة لمنحة التنمية الجهوية تتبع المعتمدية.'
       },
       lastUpdateYear: 2026
     }
@@ -814,16 +814,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: false,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://startup.gov.tn/fr/advantages',
       sourceTitle: 'Startup Act Tunisie - Portail officiel du gouvernement',
       sourceType: 'official_portal',
       dateChecked: '2026-08-01',
-      verifiedFields: ['maxAmount', 'rateType', 'requiresStartupLabel', 'purposes'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'rate', 'minContributionPercent', 'durationMonths', 'requiresStartupLabel', 'purposes'],
+      unverifiedFields: ['collegeDecision'],
       notes: {
-        fr: 'Cadre légal Loi n° 2018-20 portant Startup Act en Tunisie.',
-        ar: 'مطابق لمقتضيات القانون عدد 20 لسنة 2018 المتعلق بالمؤسسات الناشئة.'
+        fr: 'Montants mensuels (jusqu’à 5 000 DT/mois) et durée vérifiés selon la Loi n° 2018-20. L’octroi de la bourse dépend de la labellisation par le Collège des Startups.',
+        ar: 'تم التحقق من قيمة المنحة الشهرية وشروطها بموجب القانون عدد 20 لسنة 2018. صرف المنحة مشروط بقرار لجنة Labellisation.'
       },
       lastUpdateYear: 2026
     }
@@ -1159,16 +1159,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: false,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.emploi.nat.tn/fo/Fr/global.php?menu1=72',
       sourceTitle: 'ANETI - Mesures d’encouragement au travail indépendant',
       sourceType: 'official_portal',
       dateChecked: '2026-04-05',
-      verifiedFields: ['maxAmount', 'purposes', 'rateType', 'targetAudience'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'purposes', 'rate', 'minContributionPercent', 'durationMonths', 'targetAudience'],
+      unverifiedFields: ['regionalQuota'],
       notes: {
-        fr: 'Vérifié auprès du guide des programmes actifs d’insertion de l’ANETI.',
-        ar: 'تم التحقق من دليل برامج التشجيع على العمل المستقل.'
+        fr: 'Plafond d’aide à l’étude et gratuité vérifiés d’après le guide ANETI. L’attribution reste soumise à la disponibilité des quotas budgétaires du bureau d’emploi local.',
+        ar: 'تم التحقق من سقف المساعدة والمجانية. الإسناد خاضع للحصة المتاحة بمكتب التشغيل والعمل المستقل.'
       },
       lastUpdateYear: 2026
     }
@@ -1266,16 +1266,16 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     hasRegionalDevelopmentBonus: false,
     accessibleWithoutHeavyCollateral: true,
     verification: {
-      status: 'VERIFIED',
+      status: 'PARTIALLY_VERIFIED',
       sourceUrl: 'https://www.bts.com.tn/fonds-speciaux/fonapram/',
       sourceTitle: 'BTS Bank - Mécanisme FONAPRAM officiel',
       sourceType: 'bank_fiche',
       dateChecked: '2026-03-20',
-      verifiedFields: ['maxAmount', 'rateType', 'minContributionPercent'],
-      unverifiedFields: [],
+      verifiedFields: ['maxAmount', 'rate', 'minContributionPercent', 'durationMonths', 'gracePeriodMonths'],
+      unverifiedFields: ['guaranteeRequirements'],
       notes: {
-        fr: 'Conditions vérifiées d’après les textes d’application FONAPRAM.',
-        ar: 'الشروط متطابقة مع النصوص القانونية لصندوق فوناكرام.'
+        fr: 'Plafond (100 000 DT), taux bonifié (5%) et apport minime (5%) vérifiés d’après les textes FONAPRAM. Les cautions exigées restent à valider par le commissariat régional.',
+        ar: 'تم التحقق من السقف ونسبة الفائدة والتمويل الذاتي. الضمانات الميدانية يحددها المندوب الجهوي وفرع البنك.'
       },
       lastUpdateYear: 2026
     }

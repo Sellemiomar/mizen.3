@@ -18,6 +18,7 @@ import { MatchResult, Language, ApplicantProfile, AlignmentLevel } from '../type
 import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
+import { getFieldLabel } from '../utils/verificationLabels';
 
 interface ResultsViewProps {
   results: MatchResult[];
@@ -299,6 +300,53 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                     <span className="font-bold text-slate-900 text-sm">
                       Min. {program.minContributionPercent}%
                     </span>
+                  </div>
+                </div>
+
+                {/* Visible Field-Level Verification Distinction */}
+                <div className="mb-4 p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 text-xs space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-200 text-[11px]">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                      <ShieldAlert className="w-3.5 h-3.5 text-blue-700" />
+                      <span>{language === 'ar' ? 'مستوى توثيق الشروط والبيانات :' : 'Traçabilité des données du produit :'}</span>
+                    </div>
+                    <div className="text-slate-500">
+                      {language === 'ar' ? 'المصدر :' : 'Source :'} <a href={program.verification.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline font-semibold">{program.verification.sourceTitle}</a> ({program.verification.dateChecked})
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    {program.verification.verifiedFields && program.verification.verifiedFields.length > 0 && (
+                      <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-200/80 text-emerald-950">
+                        <strong className="block text-emerald-900 font-bold mb-1 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>{language === 'ar' ? 'معايير مؤكدة رسمياً :' : 'Vérifié par la source officielle :'}</span>
+                        </strong>
+                        <div className="flex flex-wrap gap-1">
+                          {program.verification.verifiedFields.map(f => (
+                            <span key={f} className="px-1.5 py-0.5 rounded bg-white text-emerald-900 border border-emerald-200 text-[10px] font-medium">
+                              ✓ {getFieldLabel(f, language)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {program.verification.unverifiedFields && program.verification.unverifiedFields.length > 0 && (
+                      <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-950">
+                        <strong className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>{language === 'ar' ? 'شروط تتطلب التأكيد من الفرع :' : 'À vérifier auprès du conseiller / comité :'}</span>
+                        </strong>
+                        <div className="flex flex-wrap gap-1">
+                          {program.verification.unverifiedFields.map(f => (
+                            <span key={f} className="px-1.5 py-0.5 rounded bg-white text-amber-900 border border-amber-200 text-[10px] font-medium">
+                              ⚠ {getFieldLabel(f, language)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
