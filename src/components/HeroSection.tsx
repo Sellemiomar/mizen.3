@@ -156,7 +156,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         // Do NOT jump directly to results! Present the extracted draft for user confirmation
         setExtractedDraft({
           financingRequested: data.extracted.financingRequested ?? undefined,
-          totalProjectCost: data.extracted.totalProjectCost ?? data.extracted.financingRequested ?? undefined,
+          totalProjectCost: data.extracted.totalProjectCost ?? undefined, // Must NEVER default to financingRequested
           userContribution: data.extracted.userContribution ?? undefined,
           purpose: data.extracted.purpose ?? undefined,
           sector: data.extracted.sector ?? undefined,
@@ -199,19 +199,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       }
 
       const missing: string[] = [];
-      if (!detectedAmount) missing.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'Montant du financement');
+      if (!detectedAmount) missing.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'Montant du financement souhaité');
       if (!detectedPurpose) missing.push(language === 'ar' ? 'موضوع التمويل' : 'Objet du financement');
 
       setExtractedDraft({
         purpose: detectedPurpose,
         financingRequested: detectedAmount,
-        totalProjectCost: detectedAmount,
+        totalProjectCost: undefined, // financingRequested ≠ totalProjectCost
         userContribution: undefined,
         location: undefined,
         sector: undefined,
         businessStage: undefined,
         missingCriticalFields: missing,
         unassumedFields: [
+          language === 'ar' ? 'الكلفة الإجمالية للمشروع غير محددة' : 'Coût global du projet non spécifié',
           language === 'ar' ? 'الولاية / الجهة غير محددة' : 'Région / Gouvernorat non spécifié',
           language === 'ar' ? 'القطاع غير محدد' : 'Secteur d’activité non spécifié',
           language === 'ar' ? 'المساهمة الذاتية غير محددة' : 'Apport personnel non spécifié'
@@ -226,7 +227,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     if (!extractedDraft) return;
     onAiParsed({
       financingRequested: extractedDraft.financingRequested,
-      totalProjectCost: extractedDraft.totalProjectCost ?? extractedDraft.financingRequested,
+      totalProjectCost: extractedDraft.totalProjectCost,
       userContribution: extractedDraft.userContribution,
       purpose: extractedDraft.purpose,
       sector: extractedDraft.sector,
@@ -383,7 +384,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   {/* Montant souhaité */}
                   <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
                     <span className="text-slate-500 block mb-1 font-medium">
-                      {language === 'ar' ? 'التمويل المطلوب :' : 'Montant souhaité :'}
+                      {language === 'ar' ? 'التمويل المطلوب :' : 'Financement souhaité :'}
                     </span>
                     {isEditingDraft ? (
                       <div className="flex items-center gap-1">
@@ -392,8 +393,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                           value={extractedDraft.financingRequested || ''}
                           onChange={(e) => setExtractedDraft({
                             ...extractedDraft,
-                            financingRequested: parseFloat(e.target.value) || undefined,
-                            totalProjectCost: extractedDraft.totalProjectCost ?? (parseFloat(e.target.value) || undefined)
+                            financingRequested: parseFloat(e.target.value) || undefined
                           })}
                           placeholder="Ex: 80000"
                           className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
@@ -403,6 +403,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     ) : (
                       <span className={`font-semibold ${extractedDraft.financingRequested ? 'text-blue-900' : 'text-amber-700'}`}>
                         {extractedDraft.financingRequested ? `${extractedDraft.financingRequested.toLocaleString('fr-FR')} DT` : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Coût global du projet */}
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <span className="text-slate-500 block mb-1 font-medium">
+                      {language === 'ar' ? 'الكلفة الجملية للمشروع :' : 'Coût global du projet :'}
+                    </span>
+                    {isEditingDraft ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={extractedDraft.totalProjectCost || ''}
+                          onChange={(e) => setExtractedDraft({
+                            ...extractedDraft,
+                            totalProjectCost: parseFloat(e.target.value) || undefined
+                          })}
+                          placeholder="Ex: 100000"
+                          className="w-full p-1.5 rounded-md border border-slate-300 bg-white font-medium text-slate-800"
+                        />
+                        <span className="font-bold text-slate-500">DT</span>
+                      </div>
+                    ) : (
+                      <span className={`font-semibold ${extractedDraft.totalProjectCost ? 'text-slate-900' : 'text-slate-500'}`}>
+                        {extractedDraft.totalProjectCost ? `${extractedDraft.totalProjectCost.toLocaleString('fr-FR')} DT` : (language === 'ar' ? 'غير محدد' : 'Non précisé')}
                       </span>
                     )}
                   </div>

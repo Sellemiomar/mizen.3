@@ -164,7 +164,7 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
 
   return {
     financingRequested: detectedAmount,
-    totalProjectCost: detectedAmount,
+    totalProjectCost: undefined, // financingRequested ≠ totalProjectCost. Must remain undefined unless explicitly stated
     userContribution: undefined,
     purpose,
     sector,

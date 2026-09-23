@@ -57,9 +57,9 @@ export interface Translations {
   matchedBecauseTitle: string;
   potentialIssuesTitle: string;
   needsVerificationTitle: string;
-  eligibilityLevelHigh: string;
-  eligibilityLevelModerate: string;
-  eligibilityLevelBlocker: string;
+  alignmentStrong: string;
+  alignmentPartial: string;
+  alignmentBlockers: string;
   viewDetailBtn: string;
   compareBtn: string;
   addToCompare: string;
@@ -148,9 +148,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     matchedBecauseTitle: 'Correspondances avec votre profil :',
     potentialIssuesTitle: 'Points d’attention ou critères bloquants :',
     needsVerificationTitle: 'À vérifier avec le chargé de clientèle :',
-    eligibilityLevelHigh: 'Forte adéquation avec les critères publics',
-    eligibilityLevelModerate: 'Adéquation partielle — points à vérifier',
-    eligibilityLevelBlocker: 'Critères potentiellement bloquants',
+    alignmentStrong: 'Forte adéquation avec les critères publics',
+    alignmentPartial: 'Adéquation partielle — points à vérifier',
+    alignmentBlockers: 'Critères potentiellement bloquants',
     viewDetailBtn: 'Voir la fiche complète',
     compareBtn: 'Comparer',
     addToCompare: 'Ajouter au comparateur',
@@ -234,9 +234,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     matchedBecauseTitle: 'نقاط التطابق مع ملفك :',
     potentialIssuesTitle: 'نقاط الانتباه أو الشروط المعطلة :',
     needsVerificationTitle: 'نقاط للتثبت المباشر مع البنك :',
-    eligibilityLevelHigh: 'تطابق قوي مع المعايير العامة',
-    eligibilityLevelModerate: 'تطابق جزئي — نقاط تتطلب التثبت',
-    eligibilityLevelBlocker: 'معايير قد تعيق القبول الفني',
+    alignmentStrong: 'تطابق قوي مع المعايير العامة',
+    alignmentPartial: 'تطابق جزئي — نقاط تتطلب التثبت',
+    alignmentBlockers: 'معايير قد تعيق القبول الفني',
     viewDetailBtn: 'تفاصيل البرنامج الكاملة',
     compareBtn: 'مقارنة',
     addToCompare: 'إضافة للمقارنة',

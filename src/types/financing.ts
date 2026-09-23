@@ -223,6 +223,8 @@ export interface FinancingProgram {
   verification: VerificationRecord;
 }
 
+export type AlignmentLevel = 'strong_alignment' | 'partial_alignment' | 'potential_blockers';
+
 export interface MatchReason {
   matchedBecause: {
     fr: string;
@@ -236,7 +238,7 @@ export interface MatchReason {
     fr: string;
     ar: string;
   }[];
-  eligibilityLevel: 'high' | 'moderate' | 'potential_blockers';
+  alignmentLevel: AlignmentLevel;
 }
 
 export type RateOrigin = 

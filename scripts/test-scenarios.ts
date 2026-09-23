@@ -39,7 +39,7 @@ const resultsA = runMatchingEngine(profileA);
 assert(resultsA.length > 0, 'Scenario A matches programs');
 const btsDiplomesA = resultsA.find(r => r.program.id === 'bts_diplomes');
 assert(btsDiplomesA !== undefined, 'BTS Diplômés is evaluated');
-assert(btsDiplomesA?.reasons.eligibilityLevel === 'high', 'BTS Diplômés has high compatibility for graduate with 75k DT');
+assert(btsDiplomesA?.reasons.alignmentLevel === 'strong_alignment', 'BTS Diplômés has strong alignment for graduate with 75k DT');
 assert(Boolean(btsDiplomesA?.reasons.matchedBecause.some(m => m.fr.includes('Diplôme'))), 'Validates higher education degree');
 
 // Scenario B: Existing company, 250,000 DT extension in Sfax (Manufacturing)
@@ -62,8 +62,8 @@ const profileB: ApplicantProfile = {
 const resultsB = runMatchingEngine(profileB);
 const bfpmeB = resultsB.find(r => r.program.id === 'bfpme_creation');
 const sotugarB = resultsB.find(r => r.program.id === 'sotugar_guarantee');
-assert(bfpmeB !== undefined && bfpmeB.reasons.eligibilityLevel === 'high', 'BFPME matches 250k DT PME expansion');
-assert(sotugarB !== undefined && sotugarB.reasons.eligibilityLevel === 'high', 'SOTUGAR matches investment guarantee');
+assert(bfpmeB !== undefined && bfpmeB.reasons.alignmentLevel === 'strong_alignment', 'BFPME matches 250k DT PME expansion with strong alignment');
+assert(sotugarB !== undefined && sotugarB.reasons.alignmentLevel === 'strong_alignment', 'SOTUGAR matches investment guarantee with strong alignment');
 // BTS cap is 150k DT, so 250k DT exceeds it
 const btsB = resultsB.find(r => r.program.id === 'bts_diplomes');
 assert(Boolean(btsB?.reasons.potentialIssues.some(p => p.fr.includes('dépasse le plafond'))), 'BTS flags amount exceeding cap');
@@ -88,7 +88,7 @@ const profileC: ApplicantProfile = {
 const resultsC = runMatchingEngine(profileC);
 const startupActC = resultsC.find(r => r.program.id === 'startup_act_bourse');
 assert(startupActC !== undefined, 'Startup Act program evaluated');
-assert(startupActC?.reasons.eligibilityLevel === 'high', 'Startup Act matches labeled innovative startup');
+assert(startupActC?.reasons.alignmentLevel === 'strong_alignment', 'Startup Act matches labeled innovative startup with strong alignment');
 assert(Boolean(startupActC?.reasons.matchedBecause.some(m => m.fr.includes('Startup Act'))), 'Confirms Startup Act label recognized');
 
 // Scenario D: Micro-project / artisan, 15,000 DT in Kairouan
@@ -133,7 +133,7 @@ const profileE: ApplicantProfile = {
 
 const resultsE = runMatchingEngine(profileE);
 const zitounaE = resultsE.find(r => r.program.id === 'banque_zitouna_mourabaha');
-assert(zitounaE !== undefined && zitounaE.reasons.eligibilityLevel === 'high', 'Banque Zitouna Mourabaha matches Islamic finance preference');
+assert(zitounaE !== undefined && zitounaE.reasons.alignmentLevel === 'strong_alignment', 'Banque Zitouna Mourabaha matches Islamic finance preference with strong alignment');
 assert(zitounaE?.costEstimate.canCalculateReliably === false, 'Mourabaha does not fabricate a 9.5% fake quote');
 assert(zitounaE?.costEstimate.rateOrigin === 'unavailable', 'Mourabaha rateOrigin is unavailable/contractual');
 
@@ -159,6 +159,39 @@ assert(resultsF.length > 0, 'Scenario F evaluates all programs without throwing'
 for (const res of resultsF) {
   assert(res.reasons.needsVerification.length > 0, `Program ${res.program.id} marks missing items as needsVerification`);
   assert(res.costEstimate.canCalculateReliably === false, `Program ${res.program.id} does not calculate fake costs for 0 DT`);
+  assert(
+    ['strong_alignment', 'partial_alignment', 'potential_blockers'].includes(res.reasons.alignmentLevel),
+    `Program ${res.program.id} outputs valid alignmentLevel`
+  );
+}
+
+// Scenario G: Distinct financingRequested vs totalProjectCost Truth Model Check
+console.log('\n--- SCENARIO G: Vérification séparation financingRequested ≠ totalProjectCost ---');
+const profileG: ApplicantProfile = {
+  financingRequested: 40000,
+  totalProjectCost: undefined, // Total cost deliberately missing
+  userContribution: undefined,
+  purpose: 'equipment',
+  sector: 'services',
+  location: 'Tunis',
+  businessStage: 'creation_underway',
+  hasHigherEducationDegree: true,
+  structurePreference: 'any'
+};
+const resultsG = runMatchingEngine(profileG);
+const btsG = resultsG.find(r => r.program.id === 'bts_diplomes');
+assert(btsG !== undefined, 'BTS evaluated in Scenario G');
+assert(
+  Boolean(btsG?.reasons.needsVerification.some(v => v.fr.includes('apport') || v.fr.includes('Coût total non spécifié'))),
+  'Engine requires verification of project cost and does not equate financingRequested to totalProjectCost'
+);
+
+// Scenario H: Field-level verification integrity audit
+console.log('\n--- SCENARIO H: Audit de vérification au niveau des champs ---');
+for (const prog of FINANCING_PROGRAMS) {
+  assert(prog.verification !== undefined, `${prog.id} has verification metadata`);
+  assert(Array.isArray(prog.verification.verifiedFields) && prog.verification.verifiedFields.length > 0, `${prog.id} specifies verified fields`);
+  assert(prog.verification.sourceUrl.length > 0, `${prog.id} has official source URL`);
 }
 
 // Financial calculations check: no 18% arbitrary default for microcredit

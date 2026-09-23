@@ -106,33 +106,38 @@ export function evaluateProgramCompatibility(
   }
 
   // 5. Apport personnel (Contribution %)
-  const totalCost = (applicant.totalProjectCost && applicant.totalProjectCost > 0)
-    ? applicant.totalProjectCost 
-    : (amount + (applicant.userContribution || 0));
-  const userContrib = applicant.userContribution || 0;
-  const contributionRatio = totalCost > 0 ? (userContrib / totalCost) * 100 : 0;
-
-  if (totalCost <= 0 && userContrib <= 0) {
+  // Strict rule: financingRequested ≠ totalProjectCost.
+  if (!applicant.totalProjectCost || applicant.totalProjectCost <= 0) {
     if (program.minContributionPercent > 0) {
       needsVerification.push({
-        fr: `Apport personnel non renseigné : ce mécanisme requiert un apport propre d'au moins ${program.minContributionPercent}% du coût global.`,
-        ar: `التمويل الذاتي غير محدد : يشترط هذا البرنامج مساهمة ذاتية لا تقل عن ${program.minContributionPercent}% من الكلفة الإجمالية.`
+        fr: `Coût global du projet non précisé : ce mécanisme requiert au moins ${program.minContributionPercent}% d'apport personnel sur le budget total d'investissement.`,
+        ar: `الكلفة الجملية للمشروع غير محددة : يشترط هذا البرنامج مساهمة ذاتية لا تقل عن ${program.minContributionPercent}% من الكلفة الإجمالية.`
       });
     }
-  } else if (contributionRatio >= program.minContributionPercent) {
+  } else if (applicant.userContribution === undefined) {
     if (program.minContributionPercent > 0) {
-      matchedBecause.push({
-        fr: `Apport personnel déclaré (${contributionRatio.toFixed(1)}%) suffisant par rapport au minimum requis (${program.minContributionPercent}%).`,
-        ar: `التمويل الذاتي المصرح به (${contributionRatio.toFixed(1)}%) كافٍ مقارنة بالحد الأدنى المطلوب (${program.minContributionPercent}%).`
+      needsVerification.push({
+        fr: `Apport personnel non renseigné : ce mécanisme requiert un apport propre d'au moins ${program.minContributionPercent}% du coût global de ${applicant.totalProjectCost.toLocaleString('fr-FR')} DT (soit au moins ${Math.round((applicant.totalProjectCost * program.minContributionPercent) / 100).toLocaleString('fr-FR')} DT).`,
+        ar: `التمويل الذاتي غير مصرح به : يشترط هذا البرنامج مساهمة ذاتية لا تقل عن ${program.minContributionPercent}% من الكلفة الإجمالية البالغة ${applicant.totalProjectCost.toLocaleString('fr-FR')} د.`
       });
-      scoreWeight += 15;
     }
   } else {
-    potentialIssues.push({
-      fr: `Apport personnel (${contributionRatio.toFixed(1)}%) inférieur au seuil réglementaire requis (${program.minContributionPercent}%). Un complément d'autofinancement sera exigé.`,
-      ar: `التمويل الذاتي (${contributionRatio.toFixed(1)}%) أقل من النسبة القانونية المطلوبة (${program.minContributionPercent}%). سيتطلب الملف استكمال التمويل الذاتي.`
-    });
-    scoreWeight -= 25;
+    const contributionRatio = (applicant.userContribution / applicant.totalProjectCost) * 100;
+    if (contributionRatio >= program.minContributionPercent) {
+      if (program.minContributionPercent > 0) {
+        matchedBecause.push({
+          fr: `Apport personnel déclaré (${contributionRatio.toFixed(1)}%) suffisant par rapport au minimum requis (${program.minContributionPercent}%).`,
+          ar: `التمويل الذاتي المصرح به (${contributionRatio.toFixed(1)}%) كافٍ مقارنة بالحد الأدنى المطلوب (${program.minContributionPercent}%).`
+        });
+        scoreWeight += 15;
+      }
+    } else {
+      potentialIssues.push({
+        fr: `Apport personnel (${contributionRatio.toFixed(1)}%) inférieur au seuil réglementaire requis (${program.minContributionPercent}%). Un complément d'autofinancement sera exigé.`,
+        ar: `التمويل الذاتي (${contributionRatio.toFixed(1)}%) أقل من النسبة القانونية المطلوبة (${program.minContributionPercent}%). سيتطلب الملف استكمال التمويل الذاتي.`
+      });
+      scoreWeight -= 25;
+    }
   }
 
   // 6. Forme juridique (Legal Structure)
@@ -304,25 +309,25 @@ export function evaluateProgramCompatibility(
   // Calculate Cost
   const costEstimate = calculateFinancingCost(amount, program);
 
-  // Overall Compatibility Level
-  let eligibilityLevel: MatchReason['eligibilityLevel'] = 'high';
+  // Overall Alignment Level with public official criteria
+  let alignmentLevel: MatchReason['alignmentLevel'] = 'strong_alignment';
   if (potentialIssues.length >= 2 || scoreWeight < 85) {
-    eligibilityLevel = 'moderate';
+    alignmentLevel = 'partial_alignment';
   }
   if (potentialIssues.length >= 3 || scoreWeight < 65) {
-    eligibilityLevel = 'potential_blockers';
+    alignmentLevel = 'potential_blockers';
   }
 
   // Neutral, transparent summary reflecting alignment with public criteria (Never "X% approval chance")
   const compatibilitySummary = {
-    fr: eligibilityLevel === 'high'
+    fr: alignmentLevel === 'strong_alignment'
       ? `Forte adéquation avec les critères publics de ${provider.acronym}.`
-      : eligibilityLevel === 'moderate'
+      : alignmentLevel === 'partial_alignment'
       ? `Adéquation partielle — points à vérifier avant soumission.`
       : `Critères potentiellement bloquants identifiés pour ce dispositif.`,
-    ar: eligibilityLevel === 'high'
+    ar: alignmentLevel === 'strong_alignment'
       ? `تطابق قوي مع المعايير العامة المنشورة لدى ${provider.acronym}.`
-      : eligibilityLevel === 'moderate'
+      : alignmentLevel === 'partial_alignment'
       ? `تطابق جزئي — نقاط تتطلب التثبت والاستيضاح.`
       : `وجود شروط قد تعيق القبول الفني لهذا البرنامج.`
   };
@@ -334,7 +339,7 @@ export function evaluateProgramCompatibility(
       matchedBecause,
       potentialIssues,
       needsVerification,
-      eligibilityLevel
+      alignmentLevel
     },
     costEstimate,
     compatibilitySummary,

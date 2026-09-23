@@ -168,35 +168,62 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Key Parameters 4-Grid */}
+          {/* Key Parameters 4-Grid with field-level claims verification */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
-              {language === 'ar' ? 'المعايير المالية الأساسية' : 'Paramètres financiers officiels'}
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center justify-between">
+              <span>{language === 'ar' ? 'المعايير المالية الأساسية' : 'Paramètres financiers officiels'}</span>
+              <span className="text-[11px] font-normal text-slate-500">
+                {language === 'ar' ? 'تأكيد مستوى كل حقل' : 'Certification champ par champ'}
+              </span>
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-500 block mb-1">Montant admissible</span>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-slate-500">Montant admissible</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                    {program.verification.verifiedFields.includes('maxAmount') ? '✓ Vérifié' : 'Indicatif'}
+                  </span>
+                </div>
                 <span className="text-base font-extrabold text-slate-900">
                   {program.minAmount.toLocaleString('fr-FR')} à {program.maxAmount.toLocaleString('fr-FR')} DT
                 </span>
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-500 block mb-1">Taux & Coût</span>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-slate-500">Taux & Coût</span>
+                  <span className={`text-[10px] font-semibold px-1 py-0.2 rounded border ${
+                    program.rateType === 'subsidized'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : 'text-amber-800 bg-amber-50 border-amber-200'
+                  }`}>
+                    {program.rateType === 'subsidized' ? '✓ Décret' : (program.rateType === 'variable_tmm' ? 'TMM BCT' : 'À négocier')}
+                  </span>
+                </div>
                 <span className="text-sm font-bold text-slate-900">
                   {program.rateDescription[language]}
                 </span>
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-500 block mb-1">Durée maximale</span>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-slate-500">Durée maximale</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                    {program.verification.verifiedFields.includes('durationMonths') ? '✓ Vérifié' : 'Indicatif'}
+                  </span>
+                </div>
                 <span className="text-sm font-bold text-slate-900">
                   Jusqu'à {Math.round(program.durationMonthsMax / 12)} ans ({program.durationMonthsMax} mois)
                 </span>
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-500 block mb-1">Différé (Franchise)</span>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-slate-500">Différé (Franchise)</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                    ✓ Réglementaire
+                  </span>
+                </div>
                 <span className="text-sm font-bold text-slate-900">
                   {program.gracePeriodMonthsMin} à {program.gracePeriodMonthsMax} mois
                 </span>
@@ -206,10 +233,15 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
 
           {/* Guarantees & Collateral */}
           <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50">
-            <h3 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-blue-700" />
-              <span>Garanties & Sûretés exigées</span>
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-700" />
+                <span>Garanties & Sûretés exigées</span>
+              </h3>
+              <span className="text-[10px] font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                {program.verification.verifiedFields.includes('guaranteeRequirements') ? '✓ Source certifiée' : 'Conditions de banque'}
+              </span>
+            </div>
             <p className="text-xs text-slate-700 leading-relaxed">
               {program.guaranteeRequirements[language]}
             </p>

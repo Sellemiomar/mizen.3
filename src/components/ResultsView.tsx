@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   Info
 } from 'lucide-react';
-import { MatchResult, Language, ApplicantProfile } from '../types/financing';
+import { MatchResult, Language, ApplicantProfile, AlignmentLevel } from '../types/financing';
 import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
@@ -41,7 +41,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onRestartDiagnostic
 }) => {
   const t = TRANSLATIONS[language];
-  const [filterLevel, setFilterLevel] = useState<'all' | 'high' | 'moderate'>('all');
+  const [filterLevel, setFilterLevel] = useState<'all' | AlignmentLevel>('all');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => {
@@ -50,7 +50,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   const filteredResults = results.filter(r => {
     if (filterLevel === 'all') return true;
-    return r.reasons.eligibilityLevel === filterLevel;
+    return r.reasons.alignmentLevel === filterLevel;
   });
 
   const isProfileEmpty = !applicantProfile.financingRequested && 
@@ -152,25 +152,36 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </button>
 
         <button
-          onClick={() => setFilterLevel('high')}
+          onClick={() => setFilterLevel('strong_alignment')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            filterLevel === 'high'
+            filterLevel === 'strong_alignment'
               ? 'bg-emerald-700 text-white shadow-2xs'
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'توافق قوي' : 'Adéquation forte'} ({results.filter(r => r.reasons.eligibilityLevel === 'high').length})
+          {language === 'ar' ? 'توافق قوي' : 'Forte adéquation'} ({results.filter(r => r.reasons.alignmentLevel === 'strong_alignment').length})
         </button>
 
         <button
-          onClick={() => setFilterLevel('moderate')}
+          onClick={() => setFilterLevel('partial_alignment')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            filterLevel === 'moderate'
+            filterLevel === 'partial_alignment'
               ? 'bg-amber-700 text-white shadow-2xs'
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'توافق مع شروط للتحقق' : 'Points à clarifier'} ({results.filter(r => r.reasons.eligibilityLevel === 'moderate').length})
+          {language === 'ar' ? 'توافق جزئي' : 'Adéquation partielle'} ({results.filter(r => r.reasons.alignmentLevel === 'partial_alignment').length})
+        </button>
+
+        <button
+          onClick={() => setFilterLevel('potential_blockers')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            filterLevel === 'potential_blockers'
+              ? 'bg-rose-700 text-white shadow-2xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          {language === 'ar' ? 'شروط تتطلب المراجعة' : 'Points bloquants'} ({results.filter(r => r.reasons.alignmentLevel === 'potential_blockers').length})
         </button>
       </div>
 
@@ -186,7 +197,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               key={program.id}
               id={`result-card-${program.id}`}
               className={`rounded-2xl border transition-all duration-200 bg-white overflow-hidden ${
-                reasons.eligibilityLevel === 'high'
+                reasons.alignmentLevel === 'strong_alignment'
                   ? 'border-slate-300/90 shadow-xs hover:border-blue-400'
                   : 'border-slate-200 shadow-2xs'
               }`}
@@ -211,56 +222,80 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                     </p>
                   </div>
 
-                  {/* Eligibility Level Badge */}
+                  {/* Alignment Level Badge */}
                   <div className="shrink-0">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                      reasons.eligibilityLevel === 'high'
+                      reasons.alignmentLevel === 'strong_alignment'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : reasons.eligibilityLevel === 'moderate'
+                        : reasons.alignmentLevel === 'partial_alignment'
                         ? 'bg-amber-50 text-amber-800 border border-amber-200'
                         : 'bg-rose-50 text-rose-800 border border-rose-200'
                     }`}>
-                      {reasons.eligibilityLevel === 'high' ? (
+                      {reasons.alignmentLevel === 'strong_alignment' ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       ) : (
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                       )}
                       <span>
-                        {reasons.eligibilityLevel === 'high'
-                          ? t.eligibilityLevelHigh
-                          : reasons.eligibilityLevel === 'moderate'
-                          ? t.eligibilityLevelModerate
-                          : t.eligibilityLevelBlocker}
+                        {reasons.alignmentLevel === 'strong_alignment'
+                          ? t.alignmentStrong
+                          : reasons.alignmentLevel === 'partial_alignment'
+                          ? t.alignmentPartial
+                          : t.alignmentBlockers}
                       </span>
                     </span>
                   </div>
                 </div>
 
-                {/* Key Metrics Bar */}
+                {/* Key Metrics Bar with Field-level verification claims */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-xs mb-4">
-                  <div>
-                    <span className="text-slate-700 block font-medium">Plafond d'intervention</span>
+                  <div className="relative">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="text-slate-600 font-medium">Plafond d'intervention</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                        {program.verification.verifiedFields.includes('maxAmount') ? '✓ Vérifié' : 'Indicatif'}
+                      </span>
+                    </div>
                     <span className="font-bold text-slate-900 text-sm">
                       {program.minAmount.toLocaleString('fr-FR')} - {program.maxAmount.toLocaleString('fr-FR')} DT
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-slate-700 block font-medium">Taux / Formule</span>
+                  <div className="relative">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="text-slate-600 font-medium">Taux / Formule</span>
+                      <span className="text-[10px] font-semibold px-1 py-0.2 rounded border ${
+                        program.rateType === 'subsidized' 
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                          : 'text-slate-600 bg-slate-100 border-slate-200'
+                      }">
+                        {program.rateType === 'subsidized' ? '✓ Fixé par décret' : (program.rateType === 'variable_tmm' ? 'BCT TMM' : 'À négocier')}
+                      </span>
+                    </div>
                     <span className="font-bold text-slate-900 text-sm">
                       {program.rateDescription[language]}
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-slate-700 block font-medium">Durée & Franchise</span>
+                  <div className="relative">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="text-slate-600 font-medium">Durée & Franchise</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                        {program.verification.verifiedFields.includes('durationMonths') ? '✓ Barème' : 'Estimé'}
+                      </span>
+                    </div>
                     <span className="font-bold text-slate-900 text-sm">
                       {Math.round(program.durationMonthsMax / 12)} ans ({program.gracePeriodMonthsMin}m différé)
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-slate-700 block font-medium">Apport requis</span>
+                  <div className="relative">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="text-slate-600 font-medium">Apport requis</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                        {program.verification.verifiedFields.includes('minContributionPercent') ? '✓ Minimum légal' : 'Exigé'}
+                      </span>
+                    </div>
                     <span className="font-bold text-slate-900 text-sm">
                       Min. {program.minContributionPercent}%
                     </span>
