@@ -49,9 +49,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
   const [filterLevel, setFilterLevel] = useState<'all' | AlignmentLevel>('all');
+  const [showInapplicableAudit, setShowInapplicableAudit] = useState(false);
   const [handoffTarget, setHandoffTarget] = useState<{ program: FinancingProgram; provider: Provider; result: MatchResult } | null>(null);
 
-  const filteredResults = results.filter(r => {
+  const applicableResults = results.filter(r => r.status !== 'NOT_APPLICABLE');
+  const nonApplicableResults = results.filter(r => r.status === 'NOT_APPLICABLE');
+
+  const filteredResults = applicableResults.filter(r => {
     if (filterLevel === 'all') return true;
     return r.reasons.alignmentLevel === filterLevel;
   });
@@ -191,7 +195,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'جميع العروض' : 'Toutes les options'} ({results.length})
+          {language === 'ar' ? 'جميع الآليات المؤهلة' : 'Dispositifs applicables'} ({applicableResults.length})
         </button>
 
         <button
@@ -203,7 +207,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'توافق قوي' : 'Forte adéquation'} ({results.filter(r => r.reasons.alignmentLevel === 'strong_alignment').length})
+          {language === 'ar' ? 'توافق قوي' : 'Forte adéquation'} ({applicableResults.filter(r => r.reasons.alignmentLevel === 'strong_alignment').length})
         </button>
 
         <button
@@ -215,7 +219,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'توافق جزئي' : 'Adéquation partielle'} ({results.filter(r => r.reasons.alignmentLevel === 'partial_alignment').length})
+          {language === 'ar' ? 'توافق جزئي' : 'Adéquation partielle'} ({applicableResults.filter(r => r.reasons.alignmentLevel === 'partial_alignment').length})
         </button>
 
         <button
@@ -227,12 +231,22 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'شروط تتطلب المراجعة' : 'Points d’attention'} ({results.filter(r => r.reasons.alignmentLevel === 'potential_blockers').length})
+          {language === 'ar' ? 'شروط تتطلب المراجعة' : 'Points d’attention'} ({applicableResults.filter(r => r.reasons.alignmentLevel === 'potential_blockers').length})
         </button>
       </div>
 
       {/* 2. POTENTIAL FINANCING MECHANISMS LIST */}
       <div className="space-y-5">
+        {filteredResults.length === 0 && (
+          <div className="p-8 text-center bg-white border border-slate-200 rounded-3xl">
+            <p className="text-sm font-semibold text-slate-700">
+              {language === 'ar' 
+                ? 'لا توجد آليات تمويل تطابق هذا التصنيف تحديداً.'
+                : 'Aucun mécanisme ne correspond à ce filtre spécifique.'}
+            </p>
+          </div>
+        )}
+
         {filteredResults.map((item) => {
           const { program, provider, reasons, costEstimate } = item;
           const isCompared = comparedProgramIds.includes(program.id);
@@ -480,6 +494,59 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           );
         })}
       </div>
+
+      {/* Inapplicable Mechanisms Audit Section */}
+      {nonApplicableResults.length > 0 && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 border border-slate-200 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-slate-500" />
+              <h4 className="font-bold text-slate-800 text-sm">
+                {language === 'ar' 
+                  ? `آليات تم فحصها ولكنها غير مطابقة لنوعية الحاجة (${nonApplicableResults.length})` 
+                  : `Mécanismes examinés mais non applicables (${nonApplicableResults.length})`}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowInapplicableAudit(!showInapplicableAudit)}
+              className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors"
+            >
+              {showInapplicableAudit 
+                ? (language === 'ar' ? 'إخفاء التفاصيل' : 'Masquer') 
+                : (language === 'ar' ? 'عرض أسباب الاستبعاد' : 'Afficher les motifs d’inapplicabilité')}
+            </button>
+          </div>
+
+          {showInapplicableAudit && (
+            <div className="mt-4 space-y-3 pt-3 border-t border-slate-200">
+              <p className="text-slate-500 leading-relaxed">
+                {language === 'ar'
+                  ? 'ميزان يعتمد بوابة فحص مبدئي تمنع اقتراح آليات موجهة لغايات تمويلية أخرى (مثل برامج السكن لتمويل السيارات، أو برامج الشركات للمصاريف الفردية).'
+                  : 'Mizen applique une porte d’applicabilité stricte : les dispositifs ci-dessous sont légalement ou structurellement réservés à d’autres types de financement (ex. programmes logement vs achat véhicule).'}
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {nonApplicableResults.map((item) => (
+                  <div key={item.program.id} className="p-3.5 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <strong className="font-bold text-slate-900 text-xs">
+                        {item.provider.acronym} — {item.program.name[language]}
+                      </strong>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
+                        {language === 'ar' ? 'غير مطابق' : 'Non applicable'}
+                      </span>
+                    </div>
+                    <p className="text-slate-600 text-[11px] leading-relaxed">
+                      {item.applicabilityReason?.[language] || item.compatibilitySummary[language]}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 5. "WHAT MIZEN DOES NOT DETERMINE" INSTITUTIONAL DISCLAIMER */}
       <div className="p-6 rounded-3xl bg-slate-100 border border-slate-200 text-slate-800 text-xs space-y-2">

@@ -176,7 +176,7 @@ for (const res of resultsF) {
   assert(res.costEstimate.canCalculateReliably === false, `Program ${res.program.id} does not calculate fake costs for undefined amount`);
   assert(res.costEstimate.monthlyPayment === undefined, `Program ${res.program.id} monthlyPayment is undefined when amount missing`);
   assert(
-    ['strong_alignment', 'partial_alignment', 'potential_blockers'].includes(res.reasons.alignmentLevel),
+    ['strong_alignment', 'partial_alignment', 'potential_blockers', 'not_applicable'].includes(res.reasons.alignmentLevel),
     `Program ${res.program.id} outputs valid alignmentLevel`
   );
 }
@@ -448,9 +448,233 @@ for (const sc of DEMO_SCENARIOS) {
   assert(topResult.reasons.alignmentLevel === 'strong_alignment', `Demo scenario ${sc.id} has a top aligned program`);
 }
 
+// -------------------------------------------------------------
+// Scenario Q: Hard Applicability Gate (Car User + FOPROLOS & Housing vs Business)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO Q: Porte d’Applicabilité Stricte (Car User + FOPROLOS) ---');
+import { evaluateApplicability, evaluateProgramCompatibility } from '../src/engine/matchingEngine';
+
+const carUser: ApplicantProfile = {
+  journey: 'car',
+  purpose: 'vehicle',
+  totalProjectCost: 65000,
+  userContribution: 15000,
+  financingRequested: 50000,
+  vehicleCondition: 'new',
+  vehicleBuyerType: 'individual',
+  vehicleUsage: 'personal',
+  employmentStatus: 'salaried_private',
+  monthlyIncomeRange: '1500_2500',
+  location: 'Tunis'
+};
+
+const carResults = runMatchingEngine(carUser);
+const foprolosForCar = carResults.find(r => r.program.id === 'foprolos_construction');
+const premierLogementForCar = carResults.find(r => r.program.id === 'premier_logement');
+const bfpmeForCar = carResults.find(r => r.program.id === 'bfpme_creation');
+
+assert(foprolosForCar?.status === 'NOT_APPLICABLE', 'FOPROLOS is NOT_APPLICABLE for car purchase');
+assert(foprolosForCar?.reasons.alignmentLevel === 'not_applicable', 'FOPROLOS alignment level is not_applicable for car');
+assert(premierLogementForCar?.status === 'NOT_APPLICABLE', 'Premier Logement is NOT_APPLICABLE for car purchase');
+assert(bfpmeForCar?.status === 'NOT_APPLICABLE', 'BFPME is NOT_APPLICABLE for individual car purchase');
+
+const autoCreditForCar = carResults.find(r => r.program.id === 'banque_credit_auto');
+assert(autoCreditForCar?.status === 'STRONG_ALIGNMENT' || autoCreditForCar?.status === 'POTENTIAL_ALIGNMENT', 'Crédit auto is APPLICABLE and aligned for car purchase');
+
+// -------------------------------------------------------------
+// Scenario R: Housing User + FOPROLOS & Premier Logement
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO R: Parcours Habitat (Home User + FOPROLOS & Premier Logement) ---');
+const homeConstructUser: ApplicantProfile = {
+  journey: 'home_construction',
+  purpose: 'home_construction',
+  totalProjectCost: 120000,
+  userContribution: 25000,
+  financingRequested: 95000,
+  employmentStatus: 'salaried_private',
+  constructionType: 'construction',
+  hasLandOwnershipTitle: true,
+  isFirstPropertyPurchase: true,
+  location: 'Ben Arous'
+};
+
+const homeConstructResults = runMatchingEngine(homeConstructUser);
+const foprolosForHome = homeConstructResults.find(r => r.program.id === 'foprolos_construction');
+assert(foprolosForHome?.applicabilityStatus === 'APPLICABLE', 'FOPROLOS is APPLICABLE for home construction');
+assert(foprolosForHome?.status === 'STRONG_ALIGNMENT', 'FOPROLOS has strong alignment for salaried applicant constructing on titled land');
+
+const carCreditForHome = homeConstructResults.find(r => r.program.id === 'banque_credit_auto');
+assert(carCreditForHome?.status === 'NOT_APPLICABLE', 'Crédit auto is NOT_APPLICABLE for home construction');
+
+// -------------------------------------------------------------
+// Scenario S: Critical Failure vs Critical Unknown vs Missing Info
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO S: Règles Critiques (Échec Critique, Inconnue Critique, Pas de faux PASS) ---');
+// 1. Critical Failure: BTS Diplômés with NO degree (hasHigherEducationDegree === false)
+const noDegreeUser: ApplicantProfile = {
+  journey: 'startup',
+  purpose: 'creation',
+  totalProjectCost: 80000,
+  userContribution: 15000,
+  financingRequested: 65000,
+  sector: 'industry',
+  businessStage: 'idea_project',
+  legalStructure: 'suarl',
+  hasHigherEducationDegree: false, // Critical failure
+  location: 'Sousse'
+};
+
+const noDegreeResults = runMatchingEngine(noDegreeUser);
+const btsNoDegree = noDegreeResults.find(r => r.program.id === 'bts_diplomes');
+assert(btsNoDegree?.status === 'NOT_MATCHED', 'BTS Diplômés without degree evaluates to NOT_MATCHED');
+assert(btsNoDegree?.reasons.alignmentLevel !== 'strong_alignment', 'BTS Diplômés without degree CANNOT be strong_alignment');
+
+// 2. Critical Unknown: BTS Diplômés with undefined degree
+const unknownDegreeUser: ApplicantProfile = {
+  journey: 'startup',
+  purpose: 'creation',
+  totalProjectCost: 80000,
+  userContribution: 15000,
+  financingRequested: 65000,
+  sector: 'industry',
+  businessStage: 'idea_project',
+  legalStructure: 'suarl',
+  hasHigherEducationDegree: undefined, // Unknown
+  location: 'Sousse'
+};
+
+const unknownDegreeResults = runMatchingEngine(unknownDegreeUser);
+const btsUnknownDegree = unknownDegreeResults.find(r => r.program.id === 'bts_diplomes');
+assert(btsUnknownDegree?.status === 'REQUIRES_CONFIRMATION', 'BTS Diplômés with unknown degree evaluates to REQUIRES_CONFIRMATION');
+assert(btsUnknownDegree?.reasons.alignmentLevel !== 'strong_alignment', 'BTS Diplômés with unknown degree CANNOT be strong_alignment');
+
+// 3. Amount exceeding max ceiling -> NOT_MATCHED
+const overCeilingUser: ApplicantProfile = {
+  journey: 'startup',
+  purpose: 'creation',
+  totalProjectCost: 300000,
+  userContribution: 50000,
+  financingRequested: 250000, // BTS max is 150 000 DT
+  sector: 'industry',
+  businessStage: 'idea_project',
+  legalStructure: 'suarl',
+  hasHigherEducationDegree: true,
+  location: 'Tunis'
+};
+
+const overCeilingResults = runMatchingEngine(overCeilingUser);
+const btsOverCeiling = overCeilingResults.find(r => r.program.id === 'bts_diplomes');
+assert(btsOverCeiling?.status === 'NOT_MATCHED', 'Amount exceeding 150k ceiling evaluates to NOT_MATCHED');
+
+// -------------------------------------------------------------
+// Scenario T: Core Matching Invariants (Property-based tests)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO T: Vérification des 7 Invariants Fondamentaux Mizen ---');
+
+// Test across various journeys
+const testProfiles: ApplicantProfile[] = [
+  carUser,
+  homeConstructUser,
+  noDegreeUser,
+  unknownDegreeUser,
+  overCeilingUser,
+  ...DEMO_SCENARIOS.map(s => s.profile)
+];
+
+for (const prof of testProfiles) {
+  const results = runMatchingEngine(prof);
+  for (const res of results) {
+    // INVARIANT 1 & 2: If applicability = NOT_APPLICABLE, status cannot be STRONG_ALIGNMENT or POTENTIAL_ALIGNMENT
+    if (res.applicabilityStatus === 'NOT_APPLICABLE') {
+      assert(res.status === 'NOT_APPLICABLE', `[INVARIANT 1&2] ${res.program.id} when NOT_APPLICABLE must have status NOT_APPLICABLE`);
+      assert(res.reasons.alignmentLevel === 'not_applicable', `[INVARIANT 1&2] ${res.program.id} when NOT_APPLICABLE must have alignmentLevel not_applicable`);
+    }
+
+    // INVARIANT 3: If any critical rule fails, status cannot be STRONG_ALIGNMENT
+    const hasCriticalFail = res.ruleEvaluations.some(r => r.criticality === 'CRITICAL' && r.status === 'FAIL');
+    if (hasCriticalFail) {
+      assert(res.status !== 'STRONG_ALIGNMENT' && res.status !== 'POTENTIAL_ALIGNMENT', `[INVARIANT 3] ${res.program.id} with critical failure cannot be positive alignment`);
+    }
+
+    // INVARIANT 4: If any critical rule is UNKNOWN, status cannot be STRONG_ALIGNMENT
+    const hasCriticalUnknown = res.ruleEvaluations.some(r => r.criticality === 'CRITICAL' && r.status === 'UNKNOWN');
+    if (hasCriticalUnknown) {
+      assert(res.status !== 'STRONG_ALIGNMENT', `[INVARIANT 4] ${res.program.id} with critical unknown cannot be STRONG_ALIGNMENT`);
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// Scenario U: User-Facing Field Label Safety & 4-Way Verification Categorization
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO U: Sécurité des Libellés Utilisateur & 4 Niveaux de Vérification ---');
+import { getFieldLabel, formatFieldList, formatVerificationNeed } from '../src/utils/verificationLabels';
+
+// 1. Assert getFieldLabel never exposes raw camelCase on unmapped fields
+const safeFallbackFr = getFieldLabel('nonExistentInternalCustomField', 'fr');
+const safeFallbackAr = getFieldLabel('nonExistentInternalCustomField', 'ar');
+assert(!safeFallbackFr.includes('nonExistentInternalCustomField'), 'getFieldLabel FR never exposes raw camelCase tokens');
+assert(!safeFallbackAr.includes('nonExistentInternalCustomField'), 'getFieldLabel AR never exposes raw camelCase tokens');
+assert(safeFallbackFr === 'Condition financière spécifique à confirmer', 'getFieldLabel FR provides safe fallback');
+
+// 2. Assert formatVerificationNeed produces distinct institutional categories
+const userInputMsg = formatVerificationNeed('USER_INPUT_REQUIRED', 'userContribution', 'fr');
+const lenderMsg = formatVerificationNeed('LENDER_CONFIRMATION_REQUIRED', 'exactMarginOverTMM', 'fr');
+const mizenDataMsg = formatVerificationNeed('DATA_NOT_VERIFIED_IN_MIZEN', 'maxAmount', 'fr');
+const ruleOutdatedMsg = formatVerificationNeed('PROGRAMME_RULE_UNCLEAR_OR_OUTDATED', 'rate', 'fr');
+
+assert(userInputMsg.includes('Information requise à préciser dans votre profil'), 'Distinguishes USER_INPUT_REQUIRED');
+assert(lenderMsg.includes('À confirmer auprès de l\'établissement prêteur'), 'Distinguishes LENDER_CONFIRMATION_REQUIRED');
+assert(mizenDataMsg.includes('référentiel public Mizen'), 'Distinguishes DATA_NOT_VERIFIED_IN_MIZEN');
+assert(ruleOutdatedMsg.includes('Cadre réglementaire ou barème officiel'), 'Distinguishes PROGRAMME_RULE_UNCLEAR_OR_OUTDATED');
+
+// 3. Comprehensive check across all demo scenarios & programs: zero camelCase identifiers in user text
+const forbiddenRawTokens = [
+  'exactMonthlyLeaseRate',
+  'fileProcessingFees',
+  'businessAge',
+  'exactMarginOverTMM',
+  'variableCommercialSpread',
+  'exactIncomeScaleCeiling',
+  'inspectionFees',
+  'exactInsuranceQuote',
+  'commercialBankSpread',
+  'exactPropertyCapUpdate',
+  'exactProfitMarginRate',
+  'takafulInsuranceRate',
+  'partnerBankApproval',
+  'commissionRate',
+  'exactGuaranteeShare',
+  'regionalBonusRate',
+  'collegeDecision',
+  'regionalQuota'
+];
+
+let zeroRawTokensFound = true;
+for (const prof of testProfiles) {
+  const results = runMatchingEngine(prof);
+  for (const res of results) {
+    const allUserTexts = [
+      ...res.reasons.matchedBecause.map(m => m.fr + ' ' + m.ar),
+      ...res.reasons.potentialIssues.map(p => p.fr + ' ' + p.ar),
+      ...res.reasons.needsVerification.map(n => n.fr + ' ' + n.ar),
+      res.compatibilitySummary.fr + ' ' + res.compatibilitySummary.ar
+    ].join(' ');
+
+    for (const token of forbiddenRawTokens) {
+      if (allUserTexts.includes(token)) {
+        console.error(`❌ Leak of raw internal token '${token}' found in program ${res.program.id}!`);
+        zeroRawTokensFound = false;
+        allPassed = false;
+      }
+    }
+  }
+}
+assert(zeroRawTokensFound, 'Zero internal camelCase or database identifiers exposed across all user-facing results');
+
 console.log('\n================================================================');
 if (allPassed) {
-  console.log('🎉 ALL 16 SCENARIOS (A-P) AND PRODUCTION INTEGRITY CHECKS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL 21 AUDIT SCENARIOS (A-U), LABEL SAFETY & FORMAL INVARIANTS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME CHECKS FAILED');
   process.exit(1);

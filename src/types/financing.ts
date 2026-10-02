@@ -345,12 +345,66 @@ export interface FinancingProgram {
   // Data-driven matching flags (avoids hardcoded program IDs in matching engine)
   hasRegionalDevelopmentBonus?: boolean;
   accessibleWithoutHeavyCollateral?: boolean;
+  applicability?: {
+    supportedJourneys?: FinancingJourney[];
+    supportedPurposes?: FinancingPurpose[];
+    supportedBuyerTypes?: ('individual' | 'business')[];
+    requiresBusinessEntity?: boolean;
+    unverifiedApplicability?: boolean;
+  };
 
   // Traceability & Verification
   verification: VerificationRecord;
 }
 
-export type AlignmentLevel = 'strong_alignment' | 'partial_alignment' | 'potential_blockers';
+export type ApplicabilityStatus = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNKNOWN';
+export type RuleStatus = 'PASS' | 'FAIL' | 'UNKNOWN' | 'NOT_APPLICABLE';
+export type RuleCriticality = 'CRITICAL' | 'IMPORTANT' | 'INFORMATIONAL';
+
+export interface RuleEvaluation {
+  ruleId: string;
+  label: {
+    fr: string;
+    ar: string;
+  };
+  criticality: RuleCriticality;
+  status: RuleStatus;
+  explanation: {
+    fr: string;
+    ar: string;
+  };
+  verifiedSourceField?: string;
+}
+
+export interface FinancialEvaluation {
+  amountStatus: RuleStatus;
+  contributionStatus: RuleStatus;
+  overallFinancialStatus: 'COMPATIBLE' | 'PARTIALLY_COMPATIBLE' | 'INCOMPATIBLE' | 'UNKNOWN';
+  details: {
+    fr: string;
+    ar: string;
+  }[];
+}
+
+export interface EvidenceEvaluation {
+  status: VerificationStatus;
+  isOutdated: boolean;
+  hasUnverifiedFields: boolean;
+  confidenceScore: 'HIGH' | 'MEDIUM' | 'LOW';
+  notes: {
+    fr: string;
+    ar: string;
+  };
+}
+
+export type MatchStatus = 
+  | 'STRONG_ALIGNMENT'
+  | 'POTENTIAL_ALIGNMENT'
+  | 'REQUIRES_CONFIRMATION'
+  | 'NOT_MATCHED'
+  | 'NOT_APPLICABLE';
+
+export type AlignmentLevel = 'strong_alignment' | 'partial_alignment' | 'potential_blockers' | 'not_applicable';
 
 export interface MatchReason {
   matchedBecause: {
@@ -404,13 +458,22 @@ export interface CostEstimate {
 export interface MatchResult {
   program: FinancingProgram;
   provider: Provider;
+  status: MatchStatus;
+  applicabilityStatus: ApplicabilityStatus;
+  applicabilityReason?: {
+    fr: string;
+    ar: string;
+  };
+  ruleEvaluations: RuleEvaluation[];
+  financialEvaluation: FinancialEvaluation;
+  evidenceEvaluation: EvidenceEvaluation;
   reasons: MatchReason;
   costEstimate: CostEstimate;
   compatibilitySummary: {
     fr: string;
     ar: string;
   };
-  scoreWeight: number; // Internal ranking aid ONLY, NEVER shown as "approval chance"
+  scoreWeight: number; // Categorical ranking weight for secondary ordering
 }
 
 export interface LeadSubmission {
