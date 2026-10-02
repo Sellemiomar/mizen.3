@@ -401,13 +401,15 @@ assert(switchedToHome.location === 'Zaghouan', 'Preserved location');
 assert(switchedToHome.hasStartupActLabel === undefined, 'Startup Act label cleansed for home purchase');
 assert(switchedToHome.startupProjectStage === undefined, 'Startup project stage cleansed for home purchase');
 assert(switchedToHome.sector === undefined, 'Business sector cleansed for home purchase');
-assert(switchedToHome.isFirstPropertyPurchase === true, 'Home purchase initialized with housing traits');
+assert(switchedToHome.isFirstPropertyPurchase === undefined, 'Home purchase does not invent isFirstPropertyPurchase answer');
+assert(switchedToHome.propertyType === undefined, 'Home purchase does not invent propertyType');
 
 const switchedToCar = cleanProfileForJourney(initialStartupProfile, 'car');
 assert(switchedToCar.journey === 'car', 'Switched journey is car');
 assert(switchedToCar.purpose === 'vehicle', 'Purpose set to vehicle');
 assert(switchedToCar.hasStartupActLabel === undefined, 'Startup Act label cleansed for car');
-assert(switchedToCar.vehicleCondition === 'used', 'Car initialized with vehicle fields');
+assert(switchedToCar.vehicleCondition === undefined, 'Car does not invent vehicleCondition answer');
+assert(switchedToCar.vehicleBuyerType === undefined, 'Car does not invent vehicleBuyerType');
 
 // -------------------------------------------------------------
 // Scenario O: Housing Journey Integrity (Premier Logement & FOPROLOS)

@@ -174,7 +174,7 @@ export const JOURNEY_METAS: Record<FinancingJourney, JourneyMeta> = {
 /**
  * Intelligently cleanses previous inputs when a user switches financing journey,
  * preserving only legitimate common fields (location, project costs, basic income)
- * and erasing irrelevant domain questions (e.g. startup label, business years for car buyer).
+ * and erasing irrelevant domain questions without inserting fabricated default answers.
  */
 export function cleanProfileForJourney(
   prev: ApplicantProfile, 
@@ -199,100 +199,106 @@ export function cleanProfileForJourney(
     isRegionalDevelopmentZone: prev.isRegionalDevelopmentZone,
     isDemoCase: prev.isDemoCase,
     demoCaseId: prev.demoCaseId,
-    demoCaseTitle: prev.demoCaseTitle
+    demoCaseTitle: prev.demoCaseTitle,
+    projectDescription: prev.projectDescription
   };
 
   switch (newJourney) {
     case 'home_purchase':
       return {
         ...base,
-        propertyType: prev.propertyType || 'new_apartment',
-        propertyCondition: prev.propertyCondition || 'new',
-        isFirstPropertyPurchase: prev.isFirstPropertyPurchase ?? true,
-        isPrincipalResidence: prev.isPrincipalResidence ?? true,
-        desiredTermYears: prev.desiredTermYears || 20,
-        legalStructure: 'individual'
+        propertyType: prev.propertyType,
+        propertyCondition: prev.propertyCondition,
+        isFirstPropertyPurchase: prev.isFirstPropertyPurchase,
+        isPrincipalResidence: prev.isPrincipalResidence,
+        desiredTermYears: prev.desiredTermYears,
+        legalStructure: prev.legalStructure === 'individual' ? 'individual' : undefined
       };
 
     case 'home_construction':
       return {
         ...base,
-        propertyType: prev.propertyType || 'individual_house',
-        constructionType: prev.constructionType || 'construction',
-        hasLandOwnershipTitle: prev.hasLandOwnershipTitle ?? true,
-        isFirstPropertyPurchase: prev.isFirstPropertyPurchase ?? true,
-        isPrincipalResidence: prev.isPrincipalResidence ?? true,
-        desiredTermYears: prev.desiredTermYears || 15,
-        legalStructure: 'individual'
+        propertyType: prev.propertyType,
+        constructionType: prev.constructionType,
+        hasLandOwnershipTitle: prev.hasLandOwnershipTitle,
+        isFirstPropertyPurchase: prev.isFirstPropertyPurchase,
+        isPrincipalResidence: prev.isPrincipalResidence,
+        desiredTermYears: prev.desiredTermYears,
+        legalStructure: prev.legalStructure === 'individual' ? 'individual' : undefined
       };
 
     case 'car':
       return {
         ...base,
-        vehicleCondition: prev.vehicleCondition || 'used',
-        vehicleBuyerType: prev.vehicleBuyerType || 'individual',
-        vehicleUsage: prev.vehicleUsage || 'personal',
-        vehicleDesiredTermMonths: prev.vehicleDesiredTermMonths || 60,
-        vehicleCategory: prev.vehicleCategory || 'passenger',
-        vehicleIsReplacement: prev.vehicleIsReplacement ?? false,
-        legalStructure: prev.vehicleBuyerType === 'business' ? (prev.legalStructure || 'sarl') : 'individual'
+        vehicleCondition: prev.vehicleCondition,
+        vehicleBuyerType: prev.vehicleBuyerType,
+        vehicleUsage: prev.vehicleUsage,
+        vehicleDesiredTermMonths: prev.vehicleDesiredTermMonths,
+        vehicleCategory: prev.vehicleCategory,
+        vehicleIsReplacement: prev.vehicleIsReplacement,
+        legalStructure: prev.legalStructure,
+        sector: prev.vehicleBuyerType === 'business' ? prev.sector : undefined,
+        businessAgeYears: prev.vehicleBuyerType === 'business' ? prev.businessAgeYears : undefined,
+        annualTurnoverRange: prev.vehicleBuyerType === 'business' ? prev.annualTurnoverRange : undefined
       };
 
     case 'startup':
       return {
         ...base,
-        sector: prev.sector || 'industry',
-        businessStage: prev.businessStage || 'idea_project',
-        startupProjectStage: prev.startupProjectStage || 'idea',
-        isIncorporated: prev.isIncorporated ?? false,
-        hasHigherEducationDegree: prev.hasHigherEducationDegree ?? false,
-        hasStartupActLabel: prev.hasStartupActLabel ?? false,
-        legalStructure: prev.legalStructure || 'not_yet_created',
-        needsEquipmentOrPremises: prev.needsEquipmentOrPremises ?? true
+        sector: prev.sector,
+        businessStage: prev.businessStage,
+        startupProjectStage: prev.startupProjectStage,
+        isIncorporated: prev.isIncorporated,
+        hasHigherEducationDegree: prev.hasHigherEducationDegree,
+        hasStartupActLabel: prev.hasStartupActLabel,
+        legalStructure: prev.legalStructure,
+        needsEquipmentOrPremises: prev.needsEquipmentOrPremises
       };
 
     case 'business_expansion':
       return {
         ...base,
-        sector: prev.sector || 'industry',
-        businessStage: 'established_over_2y',
-        businessAgeYears: prev.businessAgeYears && prev.businessAgeYears >= 2 ? prev.businessAgeYears : 3,
-        annualTurnoverRange: prev.annualTurnoverRange || '100k_500k',
-        employeesCountRange: prev.employeesCountRange || '6_20',
-        expansionPurpose: prev.expansionPurpose || 'expansion',
-        legalStructure: prev.legalStructure && prev.legalStructure !== 'not_yet_created' ? prev.legalStructure : 'sarl',
-        hasExistingBankDebt: prev.hasExistingBankDebt ?? false
+        sector: prev.sector,
+        businessStage: prev.businessStage,
+        businessAgeYears: prev.businessAgeYears,
+        annualTurnoverRange: prev.annualTurnoverRange,
+        employeesCountRange: prev.employeesCountRange,
+        expansionPurpose: prev.expansionPurpose,
+        legalStructure: prev.legalStructure,
+        hasExistingBankDebt: prev.hasExistingBankDebt,
+        hasHigherEducationDegree: prev.hasHigherEducationDegree
       };
 
     case 'equipment':
       return {
         ...base,
-        equipmentCategory: prev.equipmentCategory || 'manufacturing',
-        equipmentCondition: prev.equipmentCondition || 'new',
-        hasProformaInvoice: prev.hasProformaInvoice ?? true,
-        sector: prev.sector || 'industry',
-        businessStage: prev.businessStage || 'creation_underway',
-        legalStructure: prev.legalStructure || 'suarl'
+        equipmentCategory: prev.equipmentCategory,
+        equipmentCondition: prev.equipmentCondition,
+        hasProformaInvoice: prev.hasProformaInvoice,
+        sector: prev.sector,
+        businessStage: prev.businessStage,
+        legalStructure: prev.legalStructure,
+        hasHigherEducationDegree: prev.hasHigherEducationDegree
       };
 
     case 'agriculture':
       return {
         ...base,
-        agriculturalActivityType: prev.agriculturalActivityType || 'crops',
-        agriculturalLandStatus: prev.agriculturalLandStatus || 'owned',
-        isSeasonalRequirement: prev.isSeasonalRequirement ?? false,
-        sector: 'agriculture_agribusiness',
-        businessStage: prev.businessStage || 'established_under_2y',
-        legalStructure: prev.legalStructure || 'individual'
+        agriculturalActivityType: prev.agriculturalActivityType,
+        agriculturalLandStatus: prev.agriculturalLandStatus,
+        isSeasonalRequirement: prev.isSeasonalRequirement,
+        sector: prev.sector ?? 'agriculture_agribusiness',
+        businessStage: prev.businessStage,
+        legalStructure: prev.legalStructure
       };
 
     case 'other_professional':
       return {
         ...base,
-        generalApplicantType: prev.generalApplicantType || 'individual',
-        sector: prev.sector || 'services',
-        businessStage: prev.businessStage || 'idea_project',
-        legalStructure: prev.legalStructure || 'individual'
+        generalApplicantType: prev.generalApplicantType,
+        sector: prev.sector,
+        businessStage: prev.businessStage,
+        legalStructure: prev.legalStructure
       };
   }
 }

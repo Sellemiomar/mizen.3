@@ -75,23 +75,28 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   const selectedJourney = profile.journey;
 
   // Auto-sync Financing Requested when Total Project Cost or User Contribution changes
-  const handleCostChange = (total: number, contribution: number) => {
-    const validTotal = Math.max(0, total);
-    const validContribution = Math.max(0, contribution);
-    const requested = Math.max(0, validTotal - validContribution);
+  const handleCostChange = (total: number | undefined, contribution: number | undefined) => {
+    const validTotal = total !== undefined ? Math.max(0, total) : undefined;
+    const validContribution = contribution !== undefined ? Math.max(0, contribution) : undefined;
+    const requested = (validTotal !== undefined && validContribution !== undefined)
+      ? Math.max(0, validTotal - validContribution)
+      : undefined;
+      
     setProfile(prev => ({
       ...prev,
       totalProjectCost: validTotal,
       userContribution: validContribution,
-      financingRequested: requested
+      financingRequested: requested ?? prev.financingRequested
     }));
   };
 
   // Auto-detect Regional Development Zone (ZDR)
   useEffect(() => {
-    const isZdr = profile.location ? REGIONAL_DEVELOPMENT_ZONES.includes(profile.location) : false;
-    if (isZdr !== profile.isRegionalDevelopmentZone) {
-      setProfile(prev => ({ ...prev, isRegionalDevelopmentZone: isZdr }));
+    if (profile.location) {
+      const isZdr = REGIONAL_DEVELOPMENT_ZONES.includes(profile.location);
+      if (isZdr !== profile.isRegionalDevelopmentZone) {
+        setProfile(prev => ({ ...prev, isRegionalDevelopmentZone: isZdr }));
+      }
     }
   }, [profile.location]);
 
@@ -103,9 +108,9 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
 
   const totalCostVal = profile.totalProjectCost ?? 0;
   const userContribVal = profile.userContribution ?? 0;
-  const contributionPercent = totalCostVal > 0
+  const contributionPercent = (totalCostVal > 0 && profile.userContribution !== undefined)
     ? Math.round((userContribVal / totalCostVal) * 100)
-    : 0;
+    : undefined;
 
   const journeyOptions: FinancingJourney[] = [
     'home_purchase',
@@ -282,7 +287,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       onClick={() => setProfile(p => ({ ...p, propertyCondition: 'new', propertyType: 'new_apartment' }))}
                       className={`min-h-[44px] p-3 rounded-xl border text-left rtl:text-right text-xs font-semibold ${
                         profile.propertyCondition === 'new'
-                          ? 'bg-blue-50 border-blue-600 text-blue-900'
+                          ? 'bg-blue-50 border-blue-600 text-blue-900 ring-1 ring-blue-600'
                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -293,7 +298,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       onClick={() => setProfile(p => ({ ...p, propertyCondition: 'existing', propertyType: 'individual_house' }))}
                       className={`min-h-[44px] p-3 rounded-xl border text-left rtl:text-right text-xs font-semibold ${
                         profile.propertyCondition === 'existing'
-                          ? 'bg-blue-50 border-blue-600 text-blue-900'
+                          ? 'bg-blue-50 border-blue-600 text-blue-900 ring-1 ring-blue-600'
                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -303,24 +308,65 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-medium cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={profile.isFirstPropertyPurchase ?? true}
-                      onChange={(e) => setProfile(p => ({ ...p, isFirstPropertyPurchase: e.target.checked }))}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>{language === 'ar' ? 'أول اقتناء لمسكن (Primo-accédant)' : 'Premier achat immobilier (Primo-accédant)'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-medium cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={profile.isPrincipalResidence ?? true}
-                      onChange={(e) => setProfile(p => ({ ...p, isPrincipalResidence: e.target.checked }))}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>{language === 'ar' ? 'مسكن رئيسي مخصص للسكنى' : 'Résidence principale'}</span>
-                  </label>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'هل هذا أول اقتناء لمسكن؟' : 'Premier achat immobilier ?'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, isFirstPropertyPurchase: true }))}
+                        className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                          profile.isFirstPropertyPurchase === true
+                            ? 'bg-blue-50 border-blue-600 text-blue-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'نعم (مسكن أول)' : 'Oui (Primo-accédant)'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, isFirstPropertyPurchase: false }))}
+                        className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                          profile.isFirstPropertyPurchase === false
+                            ? 'bg-blue-50 border-blue-600 text-blue-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'لا (مالك سابقاً)' : 'Non (Déjà propriétaire)'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'تخصيص المسكن' : 'Usage du logement'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, isPrincipalResidence: true }))}
+                        className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                          profile.isPrincipalResidence === true
+                            ? 'bg-blue-50 border-blue-600 text-blue-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'سكن رئيسي' : 'Résidence principale'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, isPrincipalResidence: false }))}
+                        className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                          profile.isPrincipalResidence === false
+                            ? 'bg-blue-50 border-blue-600 text-blue-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'سكن ثانوي / كراء' : 'Secondaire / Locatif'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -344,7 +390,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                         onClick={() => setProfile(p => ({ ...p, constructionType: item.id }))}
                         className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold text-center ${
                           profile.constructionType === item.id
-                            ? 'bg-emerald-50 border-emerald-600 text-emerald-900'
+                            ? 'bg-emerald-50 border-emerald-600 text-emerald-900 ring-1 ring-emerald-600'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -354,19 +400,35 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={profile.hasLandOwnershipTitle ?? true}
-                    onChange={(e) => setProfile(p => ({ ...p, hasLandOwnershipTitle: e.target.checked }))}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span>
-                    {language === 'ar' 
-                      ? 'الأرض مسجلة وباسم طالب التمويل (شهادة ملكية / رسم عقاري)' 
-                      : 'Terrain propre avec titre foncier individuel ou attestation de propriété'}
-                  </span>
-                </label>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    {language === 'ar' ? 'الوضعية العقارية للأرض' : 'Titre foncier et propriété du terrain'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProfile(p => ({ ...p, hasLandOwnershipTitle: true }))}
+                      className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                        profile.hasLandOwnershipTitle === true
+                          ? 'bg-emerald-50 border-emerald-600 text-emerald-900'
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {language === 'ar' ? 'أرض مسجلة (شهادة ملكية)' : 'Titre foncier individuel disponible'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfile(p => ({ ...p, hasLandOwnershipTitle: false }))}
+                      className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
+                        profile.hasLandOwnershipTitle === false
+                          ? 'bg-emerald-50 border-emerald-600 text-emerald-900'
+                          : 'bg-white border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {language === 'ar' ? 'في طور التسجيل / بدون رسم' : 'En cours / Sans titre individuel'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -382,8 +444,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       type="button"
                       onClick={() => setProfile(p => ({ ...p, vehicleBuyerType: 'individual', legalStructure: 'individual' }))}
                       className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold text-center ${
-                        profile.vehicleBuyerType !== 'business'
-                          ? 'bg-amber-50 border-amber-600 text-amber-950'
+                        profile.vehicleBuyerType === 'individual'
+                          ? 'bg-amber-50 border-amber-600 text-amber-950 ring-1 ring-amber-600'
                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -394,7 +456,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       onClick={() => setProfile(p => ({ ...p, vehicleBuyerType: 'business', legalStructure: 'sarl' }))}
                       className={`min-h-[44px] p-3 rounded-xl border text-xs font-semibold text-center ${
                         profile.vehicleBuyerType === 'business'
-                          ? 'bg-amber-50 border-amber-600 text-amber-950'
+                          ? 'bg-amber-50 border-amber-600 text-amber-950 ring-1 ring-amber-600'
                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -424,7 +486,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                         type="button"
                         onClick={() => setProfile(p => ({ ...p, vehicleCondition: 'used' }))}
                         className={`min-h-[44px] p-2.5 rounded-xl border text-xs font-semibold ${
-                          profile.vehicleCondition !== 'new'
+                          profile.vehicleCondition === 'used'
                             ? 'bg-amber-100 border-amber-600 text-amber-950'
                             : 'bg-white border-slate-200 text-slate-700'
                         }`}
@@ -439,15 +501,58 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'استعمال العربة' : 'Usage principal'}
                     </label>
                     <select
-                      value={profile.vehicleUsage || 'personal'}
-                      onChange={(e) => setProfile(p => ({ ...p, vehicleUsage: e.target.value as VehicleUsage }))}
+                      value={profile.vehicleUsage || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, vehicleUsage: e.target.value as VehicleUsage || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- اختر نوع الاستعمال --' : '-- Sélectionner l’usage --'}</option>
                       <option value="personal">{language === 'ar' ? 'استعمال شخصي وعائلي' : 'Personnel / Quotidien'}</option>
                       <option value="professional">{language === 'ar' ? 'استعمال مهني وتجاري' : 'Professionnel / Utilitaire / Société'}</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Business specific fields if vehicleBuyerType is business */}
+                {profile.vehicleBuyerType === 'business' && (
+                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
+                    <span className="text-xs font-bold text-amber-950 block uppercase">
+                      {language === 'ar' ? 'معطيات النشاط المهني للمؤسسة' : 'Informations de l’entreprise acheteuse'}
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          {language === 'ar' ? 'قطاع النشاط' : 'Secteur d’activité'}
+                        </label>
+                        <select
+                          value={profile.sector || ''}
+                          onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector || undefined }))}
+                          className="w-full min-h-[40px] px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white"
+                        >
+                          <option value="">{language === 'ar' ? '-- اختر القطاع --' : '-- Sélectionner le secteur --'}</option>
+                          {businessSectors.map(s => (
+                            <option key={s.id} value={s.id}>{s.label[language]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          {language === 'ar' ? 'أقدمية المؤسسة' : 'Ancienneté d’activité'}
+                        </label>
+                        <select
+                          value={profile.businessAgeYears || ''}
+                          onChange={(e) => setProfile(p => ({ ...p, businessAgeYears: e.target.value ? Number(e.target.value) : undefined }))}
+                          className="w-full min-h-[40px] px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white"
+                        >
+                          <option value="">{language === 'ar' ? '-- حدد الأقدمية --' : '-- Préciser l’ancienneté --'}</option>
+                          <option value={1}>Moins de 2 ans</option>
+                          <option value={3}>3 à 5 ans</option>
+                          <option value={6}>Plus de 5 ans</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -474,8 +579,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                           businessStage: st.id === 'idea' || st.id === 'study_prep' ? 'idea_project' : 'creation_underway'
                         }))}
                         className={`min-h-[44px] p-3 rounded-xl border text-xs text-left rtl:text-right font-semibold ${
-                          (profile.startupProjectStage || 'idea') === st.id
-                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950'
+                          profile.startupProjectStage === st.id
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950 ring-1 ring-indigo-600'
                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -491,10 +596,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'قطاع النشاط' : 'Secteur d’activité'}
                     </label>
                     <select
-                      value={profile.sector || 'industry'}
-                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector }))}
+                      value={profile.sector || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- اختر القطاع --' : '-- Sélectionner le secteur --'}</option>
                       {businessSectors.map(s => (
                         <option key={s.id} value={s.id}>{s.label[language]}</option>
                       ))}
@@ -506,10 +612,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'الشكل القانوني المعتمد أو المستهدف' : 'Forme juridique visée'}
                     </label>
                     <select
-                      value={profile.legalStructure || 'not_yet_created'}
-                      onChange={(e) => setProfile(p => ({ ...p, legalStructure: e.target.value as LegalStructure }))}
+                      value={profile.legalStructure || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, legalStructure: e.target.value as LegalStructure || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- حدد الصيغة القانونية --' : '-- Préciser la forme juridique --'}</option>
                       {legalForms.map(f => (
                         <option key={f.id} value={f.id}>{f.label}</option>
                       ))}
@@ -517,25 +624,66 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3 pt-1">
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium cursor-pointer flex-1 min-w-[200px]">
-                    <input
-                      type="checkbox"
-                      checked={profile.hasHigherEducationDegree ?? false}
-                      onChange={(e) => setProfile(p => ({ ...p, hasHigherEducationDegree: e.target.checked }))}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>{language === 'ar' ? 'شهادة تعليم عالٍ (تفتح سقف BTS)' : 'Diplôme supérieur (Plafond BTS 150k)'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium cursor-pointer flex-1 min-w-[200px]">
-                    <input
-                      type="checkbox"
-                      checked={profile.hasStartupActLabel ?? false}
-                      onChange={(e) => setProfile(p => ({ ...p, hasStartupActLabel: e.target.checked }))}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>{language === 'ar' ? 'علامة Startup Act (أو مشروع مرشح)' : 'Label Startup Act officiel'}</span>
-                  </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'شهادة تعليم عالٍ؟' : 'Diplôme de l’enseignement supérieur ?'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasHigherEducationDegree: true }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasHigherEducationDegree === true
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'نعم، صاحب شهادة' : 'Oui, diplômé'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasHigherEducationDegree: false }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasHigherEducationDegree === false
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'لا / تكوين مهني' : 'Non / Autre profil'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'علامة Startup Act ؟' : 'Label Startup Act ?'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasStartupActLabel: true }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasStartupActLabel === true
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'نعم، حاصل على العلامة' : 'Oui, labellisé'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasStartupActLabel: false }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasStartupActLabel === false
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-950'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'لا / قيد التفكير' : 'Non / Standard'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -549,14 +697,15 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'أقدمية المؤسسة في النشاط' : 'Ancienneté d’activité'}
                     </label>
                     <select
-                      value={profile.businessAgeYears || 3}
-                      onChange={(e) => setProfile(p => ({ ...p, businessAgeYears: Number(e.target.value) }))}
+                      value={profile.businessAgeYears || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, businessAgeYears: e.target.value ? Number(e.target.value) : undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- حدد الأقدمية --' : '-- Sélectionner l’ancienneté --'}</option>
                       <option value={2}>2 ans</option>
-                      <option value={3}>3 à 5 ans</option>
-                      <option value={6}>6 à 10 ans</option>
-                      <option value={11}>Plus de 10 ans</option>
+                      <option value={4}>3 à 5 ans</option>
+                      <option value={7}>6 à 10 ans</option>
+                      <option value={12}>Plus de 10 ans</option>
                     </select>
                   </div>
 
@@ -565,10 +714,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'رقم المعاملات السنوي التقريبي' : 'Chiffre d’affaires annuel (TND)'}
                     </label>
                     <select
-                      value={profile.annualTurnoverRange || '500k_2m'}
-                      onChange={(e) => setProfile(p => ({ ...p, annualTurnoverRange: e.target.value as AnnualTurnoverRange }))}
+                      value={profile.annualTurnoverRange || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, annualTurnoverRange: e.target.value as AnnualTurnoverRange || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- حدد رقم المعاملات --' : '-- Sélectionner le CA --'}</option>
                       <option value="under_100k">Moins de 100 000 DT</option>
                       <option value="100k_500k">100 000 – 500 000 DT</option>
                       <option value="500k_2m">500 000 – 2 000 000 DT</option>
@@ -584,10 +734,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'قطاع النشاط' : 'Secteur d’activité'}
                     </label>
                     <select
-                      value={profile.sector || 'industry'}
-                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector }))}
+                      value={profile.sector || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- اختر القطاع --' : '-- Sélectionner le secteur --'}</option>
                       {businessSectors.map(s => (
                         <option key={s.id} value={s.id}>{s.label[language]}</option>
                       ))}
@@ -599,10 +750,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'موضوع التوسعة' : 'Objet de l’extension'}
                     </label>
                     <select
-                      value={profile.expansionPurpose || 'expansion'}
-                      onChange={(e) => setProfile(p => ({ ...p, expansionPurpose: e.target.value as ExpansionPurpose }))}
+                      value={profile.expansionPurpose || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, expansionPurpose: e.target.value as ExpansionPurpose || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- حدد هدف التوسعة --' : '-- Sélectionner l’objet --'}</option>
                       <option value="expansion">{language === 'ar' ? 'زيادة طاقة الإنتاج والتوسع' : 'Augmentation des capacités de production'}</option>
                       <option value="equipment">{language === 'ar' ? 'تحديث وتجديد الآلات' : 'Modernisation / Renouvellement machines'}</option>
                       <option value="working_capital">{language === 'ar' ? 'تمويل السيولة ورأس المال العامل' : 'Fonds de roulement d’exploitation'}</option>
@@ -621,10 +773,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     {language === 'ar' ? 'صنف المعدات المزمع شراؤها' : 'Catégorie d’équipements'}
                   </label>
                   <select
-                    value={profile.equipmentCategory || 'manufacturing'}
-                    onChange={(e) => setProfile(p => ({ ...p, equipmentCategory: e.target.value as EquipmentCategory }))}
+                    value={profile.equipmentCategory || ''}
+                    onChange={(e) => setProfile(p => ({ ...p, equipmentCategory: e.target.value as EquipmentCategory || undefined }))}
                     className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium"
                   >
+                    <option value="">{language === 'ar' ? '-- اختر صنف المعدات --' : '-- Sélectionner la catégorie --'}</option>
                     <option value="manufacturing">{language === 'ar' ? 'آلات صناعية وتحويلية' : 'Machines de production & industrie'}</option>
                     <option value="commercial">{language === 'ar' ? 'معدات تجارية ومطاعم' : 'Équipements commerciaux & CHR'}</option>
                     <option value="tech_it">{language === 'ar' ? 'تجهيزات إعلامية وبرمجيات' : 'Matériel informatique & serveurs'}</option>
@@ -635,24 +788,65 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={profile.hasProformaInvoice ?? true}
-                      onChange={(e) => setProfile(p => ({ ...p, hasProformaInvoice: e.target.checked }))}
-                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
-                    />
-                    <span>{language === 'ar' ? 'فواتير تقديرية (Devis proforma) متوفرة' : 'Factures proforma / devis disponibles'}</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={profile.hasHigherEducationDegree ?? true}
-                      onChange={(e) => setProfile(p => ({ ...p, hasHigherEducationDegree: e.target.checked }))}
-                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
-                    />
-                    <span>{language === 'ar' ? 'مؤهل مهني أو شهادة جامعية' : 'Qualification technique ou diplôme'}</span>
-                  </label>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'فواتير تقديرية متوفرة؟' : 'Devis / Proforma disponibles ?'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasProformaInvoice: true }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasProformaInvoice === true
+                            ? 'bg-purple-50 border-purple-600 text-purple-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'نعم (Devis جاهز)' : 'Oui, devis prêts'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, hasProformaInvoice: false }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.hasProformaInvoice === false
+                            ? 'bg-purple-50 border-purple-600 text-purple-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'لا / في طور الجمع' : 'Non / En prospection'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      {language === 'ar' ? 'حالة التجهيزات' : 'État des équipements'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, equipmentCondition: 'new' }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.equipmentCondition === 'new'
+                            ? 'bg-purple-50 border-purple-600 text-purple-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'جديدة' : 'Matériel Neuf'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProfile(p => ({ ...p, equipmentCondition: 'used' }))}
+                        className={`min-h-[40px] p-2 rounded-xl border text-xs font-semibold ${
+                          profile.equipmentCondition === 'used'
+                            ? 'bg-purple-50 border-purple-600 text-purple-900'
+                            : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {language === 'ar' ? 'مستعملة ومجددة' : 'Occasion / Rénové'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -665,10 +859,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     {language === 'ar' ? 'النشاط الفلاحي المستهدف' : 'Branche de l’activité agricole'}
                   </label>
                   <select
-                    value={profile.agriculturalActivityType || 'crops'}
-                    onChange={(e) => setProfile(p => ({ ...p, agriculturalActivityType: e.target.value as AgriculturalActivityType }))}
+                    value={profile.agriculturalActivityType || ''}
+                    onChange={(e) => setProfile(p => ({ ...p, agriculturalActivityType: e.target.value as AgriculturalActivityType || undefined }))}
                     className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   >
+                    <option value="">{language === 'ar' ? '-- اختر النشاط الفلاحي --' : '-- Sélectionner la branche --'}</option>
                     <option value="crops">{language === 'ar' ? 'أشجار مثمرة وزراعات كبرى' : 'Arboriculture & grandes cultures'}</option>
                     <option value="livestock">{language === 'ar' ? 'تربية ماشية ودواجن' : 'Élevage bovin / ovin / aviculture'}</option>
                     <option value="irrigation_equipment">{language === 'ar' ? 'تجهيزات ري ومعدات وطاقة شمسية' : 'Irrigation, puits & énergie solaire'}</option>
@@ -681,10 +876,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     {language === 'ar' ? 'الوضعية العقارية للأرض' : 'Statut foncier de l’exploitation'}
                   </label>
                   <select
-                    value={profile.agriculturalLandStatus || 'owned'}
-                    onChange={(e) => setProfile(p => ({ ...p, agriculturalLandStatus: e.target.value as AgriculturalLandStatus }))}
+                    value={profile.agriculturalLandStatus || ''}
+                    onChange={(e) => setProfile(p => ({ ...p, agriculturalLandStatus: e.target.value as AgriculturalLandStatus || undefined }))}
                     className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   >
+                    <option value="">{language === 'ar' ? '-- حدد الوضعية العقارية --' : '-- Statut de la terre --'}</option>
                     <option value="owned">{language === 'ar' ? 'أرض ملكية خاصة مسجلة' : 'Terre en pleine propriété titrée'}</option>
                     <option value="leased">{language === 'ar' ? 'أرض مسوغة بعقد مسجل' : 'Contrat de location enregistré'}</option>
                     <option value="family_land">{language === 'ar' ? 'أرض على الشياع عائلية' : 'Exploitation familiale / indivision'}</option>
@@ -712,10 +908,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'قطاع النشاط' : 'Secteur d’activité'}
                     </label>
                     <select
-                      value={profile.sector || 'services'}
-                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector }))}
+                      value={profile.sector || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, sector: e.target.value as BusinessSector || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- اختر القطاع --' : '-- Sélectionner le secteur --'}</option>
                       {businessSectors.map(s => (
                         <option key={s.id} value={s.id}>{s.label[language]}</option>
                       ))}
@@ -726,10 +923,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       {language === 'ar' ? 'الشكل القانوني' : 'Forme juridique'}
                     </label>
                     <select
-                      value={profile.legalStructure || 'individual'}
-                      onChange={(e) => setProfile(p => ({ ...p, legalStructure: e.target.value as LegalStructure }))}
+                      value={profile.legalStructure || ''}
+                      onChange={(e) => setProfile(p => ({ ...p, legalStructure: e.target.value as LegalStructure || undefined }))}
                       className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                     >
+                      <option value="">{language === 'ar' ? '-- حدد الصيغة القانونية --' : '-- Forme juridique --'}</option>
                       {legalForms.map(f => (
                         <option key={f.id} value={f.id}>{f.label}</option>
                       ))}
@@ -768,8 +966,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                   type="number"
                   min="0"
                   step="1000"
-                  value={profile.totalProjectCost || ''}
-                  onChange={(e) => handleCostChange(Number(e.target.value), userContribVal)}
+                  value={profile.totalProjectCost !== undefined ? profile.totalProjectCost : ''}
+                  onChange={(e) => handleCostChange(e.target.value ? Number(e.target.value) : undefined, profile.userContribution)}
                   placeholder="Ex: 100 000"
                   className="w-full min-h-[44px] px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
@@ -783,8 +981,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                   type="number"
                   min="0"
                   step="1000"
-                  value={profile.userContribution || ''}
-                  onChange={(e) => handleCostChange(totalCostVal, Number(e.target.value))}
+                  value={profile.userContribution !== undefined ? profile.userContribution : ''}
+                  onChange={(e) => handleCostChange(profile.totalProjectCost, e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="Ex: 20 000"
                   className="w-full min-h-[44px] px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
@@ -796,19 +994,21 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
               <div>
                 <span className="text-slate-500 block">{language === 'ar' ? 'التمويل المطلوب' : 'Besoin de financement'}</span>
                 <strong className="text-sm sm:text-base font-bold text-blue-800">
-                  {(profile.financingRequested || 0).toLocaleString('fr-FR')} DT
+                  {profile.financingRequested !== undefined ? `${profile.financingRequested.toLocaleString('fr-FR')} DT` : 'Non précisé'}
                 </strong>
               </div>
               <div>
                 <span className="text-slate-500 block">{language === 'ar' ? 'نسبة التمويل الذاتي' : 'Taux d’autofinancement'}</span>
-                <strong className={`text-sm sm:text-base font-bold ${contributionPercent >= 20 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  {contributionPercent}%
+                <strong className={`text-sm sm:text-base font-bold ${
+                  contributionPercent === undefined ? 'text-slate-500' : contributionPercent >= 20 ? 'text-emerald-700' : 'text-amber-700'
+                }`}>
+                  {contributionPercent !== undefined ? `${contributionPercent}%` : 'Non calculé'}
                 </strong>
               </div>
               <div className="col-span-2 sm:col-span-1">
                 <span className="text-slate-500 block">{language === 'ar' ? 'الولاية' : 'Gouvernorat'}</span>
                 <strong className="text-sm font-bold text-slate-800 truncate block">
-                  {profile.location || 'Tunis'}
+                  {profile.location || 'Non précisé'}
                 </strong>
               </div>
             </div>
@@ -819,10 +1019,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 {language === 'ar' ? 'مقر المشروع أو مكان السكن / العقار' : 'Gouvernorat d’implantation / résidence'}
               </label>
               <select
-                value={profile.location || 'Tunis'}
-                onChange={(e) => setProfile(p => ({ ...p, location: e.target.value }))}
+                value={profile.location || ''}
+                onChange={(e) => setProfile(p => ({ ...p, location: e.target.value || undefined }))}
                 className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white"
               >
+                <option value="">{language === 'ar' ? '-- اختر الولاية --' : '-- Sélectionner le gouvernorat --'}</option>
                 {TUNISIAN_GOVERNORATES.map(gov => (
                   <option key={gov} value={gov}>
                     {gov} {REGIONAL_DEVELOPMENT_ZONES.includes(gov) ? '(Zone de Développement Régional)' : ''}
@@ -839,10 +1040,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     {language === 'ar' ? 'الدخل الشهري الصافي للأسرة / الفرد' : 'Revenu net mensuel (Ménage)'}
                   </label>
                   <select
-                    value={profile.monthlyIncomeRange || '1500_2500'}
-                    onChange={(e) => setProfile(p => ({ ...p, monthlyIncomeRange: e.target.value as MonthlyIncomeRange }))}
+                    value={profile.monthlyIncomeRange || ''}
+                    onChange={(e) => setProfile(p => ({ ...p, monthlyIncomeRange: e.target.value as MonthlyIncomeRange || undefined }))}
                     className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   >
+                    <option value="">{language === 'ar' ? '-- حدد شريحة الدخل --' : '-- Sélectionner la tranche de revenu --'}</option>
                     {incomeRanges.map(inc => (
                       <option key={inc.id} value={inc.id}>{inc.label[language]}</option>
                     ))}
@@ -854,10 +1056,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                     {language === 'ar' ? 'الوضعية المهنية' : 'Statut professionnel'}
                   </label>
                   <select
-                    value={profile.employmentStatus || 'salaried_private'}
-                    onChange={(e) => setProfile(p => ({ ...p, employmentStatus: e.target.value as EmploymentStatus }))}
+                    value={profile.employmentStatus || ''}
+                    onChange={(e) => setProfile(p => ({ ...p, employmentStatus: e.target.value as EmploymentStatus || undefined }))}
                     className="w-full min-h-[44px] px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
                   >
+                    <option value="">{language === 'ar' ? '-- حدد الوضعية المهنية --' : '-- Sélectionner le statut --'}</option>
                     {employmentStatuses.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.label[language]}</option>
                     ))}
