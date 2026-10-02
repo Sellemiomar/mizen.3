@@ -10,9 +10,10 @@ import { DocumentVerificationView } from './components/DocumentVerificationView'
 import { ExploreProgramsView } from './components/ExploreProgramsView';
 import { Footer } from './components/Footer';
 
-import { ApplicantProfile, FinancingProgram, Language, FinancingPurpose } from './types/financing';
+import { ApplicantProfile, FinancingProgram, Language, FinancingPurpose, FinancingJourney, DemoScenario } from './types/financing';
 import { FINANCING_PROGRAMS, PROVIDERS } from './data/financingData';
 import { runMatchingEngine } from './engine/matchingEngine';
+import { cleanProfileForJourney } from './engine/journeyEngine';
 
 const EMPTY_PROFILE: ApplicantProfile = {
   totalProjectCost: undefined,
@@ -87,6 +88,12 @@ export default function App() {
     setCurrentTab('questionnaire');
   };
 
+  const handleSelectJourneyFromHero = (journey: FinancingJourney) => {
+    const cleaned = cleanProfileForJourney(profile, journey);
+    setProfile(cleaned);
+    setCurrentTab('questionnaire');
+  };
+
   const handleAiParsedFromHero = (extracted: Partial<ApplicantProfile>) => {
     setProfile(prev => ({
       ...prev,
@@ -99,6 +106,21 @@ export default function App() {
       language === 'ar'
         ? 'تم استخراج وتحديث معطيات المشروع بنجاح عبر ذكاء ميزان.'
         : 'Paramètres du projet extraits et intégrés avec succès par Mizen AI.'
+    );
+    setCurrentTab('results');
+  };
+
+  const handleSelectDemoScenario = (scenario: DemoScenario) => {
+    setProfile({
+      ...scenario.profile,
+      isDemoCase: true,
+      demoCaseId: scenario.id,
+      demoCaseTitle: scenario.title
+    });
+    setBannerNotice(
+      language === 'ar'
+        ? `تم تحميل السيناريو النموذجي: ${scenario.title.ar}`
+        : `Scénario pilote chargé : ${scenario.title.fr}`
     );
     setCurrentTab('results');
   };
@@ -143,7 +165,9 @@ export default function App() {
           <HeroSection
             language={language}
             onSelectPurpose={handleSelectPurposeFromHero}
+            onSelectJourney={handleSelectJourneyFromHero}
             onAiParsed={handleAiParsedFromHero}
+            onSelectDemoScenario={handleSelectDemoScenario}
             onExploreAll={() => setCurrentTab('explore')}
             onStartFullDiagnostic={() => setCurrentTab('questionnaire')}
           />

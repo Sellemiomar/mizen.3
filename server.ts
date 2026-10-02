@@ -36,18 +36,115 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Helper to parse numbers & million notations
+function parseTunisianAmountServer(rawText: string): number | undefined {
+  if (!rawText) return undefined;
+  const cleanStr = rawText.toLowerCase().trim();
+
+  // Millions notation: "1,5 million", "1.5 millions", "1.5 md", "1,5 md", "1.5m", "1,5m", "1.5 مليون"
+  const millionMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)\s*(?:millions?|md\b|m\b|مليون)/i);
+  if (millionMatch) {
+    const val = parseFloat(millionMatch[1].replace(',', '.'));
+    if (!isNaN(val) && val > 0) {
+      return Math.round(val * 1000000);
+    }
+  }
+
+  // Thousands notation: "200k", "200 mille", "200 ألف", "200 الف"
+  const thousandMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)\s*(?:k\b|mille|ألف|الف)/i);
+  if (thousandMatch) {
+    const val = parseFloat(thousandMatch[1].replace(',', '.'));
+    if (!isNaN(val) && val > 0) {
+      return Math.round(val * 1000);
+    }
+  }
+
+  // Spaced / Dotted thousands notation: "1 500 000", "200 000", "50 000", "200.000", "1.500.000"
+  const spacedNumberMatch = cleanStr.match(/(\d{1,3}(?:[\s.]\d{3})+(?:,\d+)?)/);
+  if (spacedNumberMatch) {
+    const cleaned = spacedNumberMatch[1].replace(/[\s.]/g, '').replace(',', '.');
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  }
+
+  // Standard contiguous integer or decimal
+  const stdMatch = cleanStr.match(/(\d+(?:[.,]\d+)?)/);
+  if (stdMatch) {
+    const parsed = parseFloat(stdMatch[1].replace(',', '.'));
+    if (!isNaN(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  }
+
+  return undefined;
+}
+
 // Deterministic rule-based extraction fallback for natural language intake
 function getIntakeFallback(query: string = '', language: string = 'fr') {
   const lower = query.toLowerCase();
-  const amountMatch = query.match(/(\d+[\d\s.,]*)\s*(dt|dinar|tnd|k\b|mille|ألف|الف|دينار|د)?/i);
-  let detectedAmount: number | undefined = undefined;
-  if (amountMatch) {
-    const cleaned = amountMatch[1].replace(/[\s,]/g, '');
-    const parsed = parseFloat(cleaned);
-    if (!isNaN(parsed) && parsed > 0) {
-      detectedAmount = parsed;
-      if (query.includes('ألف') || query.includes('الف') || query.toLowerCase().includes('mille') || query.toLowerCase().includes('k')) {
-        if (detectedAmount < 1000) detectedAmount *= 1000;
+
+  let detectedProjectCost: number | undefined = undefined;
+  let detectedContribution: number | undefined = undefined;
+  let detectedFinancing: number | undefined = undefined;
+
+  // 1. Total Project Cost Patterns
+  const costRegexes = [
+    /(?:co[ûu]te|co[ûu]t(?:\s+total|\s+global|\s+du\s+projet)?|investissement(?:\s+total|\s+global)?|budget(?:\s+total)?|projet\s+de)\s*(?:est\s+de|de|d['’]|:)?\s*([0-9][0-9\s.,]*(?:millions?|md|m|k|mille|dt|dinar|tnd|دينار|د|مليون|ألف|الف)?)/i,
+    /(?:كلفة|تكلفة|ميزانية|مشروع\s+بقيمة|قيمة\s+المشروع|استثمار\s+إجمالي)\s*(?:المشروع|الإجمالية|الجملية)?\s*(?:تبلغ|هي|:)?\s*([0-9][0-9\s.,]*(?:مليون|ألف|الف|دينار|د)?)/i
+  ];
+  for (const reg of costRegexes) {
+    const m = query.match(reg);
+    if (m && m[1]) {
+      const parsed = parseTunisianAmountServer(m[1]);
+      if (parsed) {
+        detectedProjectCost = parsed;
+        break;
+      }
+    }
+  }
+
+  // 2. User Contribution Patterns
+  const contributionRegexes = [
+    /(?:j['’]ai\s+([0-9][0-9\s.,]*(?:millions?|md|m|k|mille|dt|dinar|tnd|دينار|د|مليون|ألف|الف)?)\s*(?:d['’]apport|de\s+fonds\s+propres))/i,
+    /(?:apport(?:\s+personnel|\s+propre|\s+en\s+fonds\s+propres)?|fonds\s+propres|autofinancement)\s*(?:de|d['’]|est\s+de|:)?\s*([0-9][0-9\s.,]*(?:millions?|md|m|k|mille|dt|dinar|tnd|دينار|د|مليون|ألف|الف)?)/i,
+    /(?:مساهمة\s+ذاتية|تمويل\s+ذاتي|أموال\s+خاصة|عندي\s+مساهمة|لدي\s+تمويل\s+ذاتي)\s*(?:تبلغ|هي|:)?\s*([0-9][0-9\s.,]*(?:مليون|ألف|الف|دينار|د)?)/i
+  ];
+  for (const reg of contributionRegexes) {
+    const m = query.match(reg);
+    if (m && m[1]) {
+      const parsed = parseTunisianAmountServer(m[1]);
+      if (parsed) {
+        detectedContribution = parsed;
+        break;
+      }
+    }
+  }
+
+  // 3. Financing Requested Patterns
+  const financingRegexes = [
+    /(?:besoin\s+de|besoin\s+d['’]|financement(?:\s+demandé|\s+souhaité|\s+requis)?|crédit(?:\s+demandé|\s+bancaire)?|emprunter|cherche|demande)\s*(?:un\s+financement\s+de|de|d['’]|:)?\s*([0-9][0-9\s.,]*(?:millions?|md|m|k|mille|dt|dinar|tnd|دينار|د|مليون|ألف|الف)?)/i,
+    /(?:تمويل\s+مطلوب|بحاجة\s+إلى|أحتاج\s+إلى|طلب\s+تمويل|قرض\s+بقيمة|أريد\s+تمويل|تمويل)\s*(?:يبلغ|هو|:)?\s*([0-9][0-9\s.,]*(?:مليون|ألف|الف|دينار|د)?)/i
+  ];
+  for (const reg of financingRegexes) {
+    const m = query.match(reg);
+    if (m && m[1]) {
+      const parsed = parseTunisianAmountServer(m[1]);
+      if (parsed) {
+        detectedFinancing = parsed;
+        break;
+      }
+    }
+  }
+
+  // Single general number fallback
+  if (!detectedFinancing && !detectedProjectCost) {
+    const generalMatch = query.match(/(\d+[\d\s.,]*(?:millions?|md\b|m\b|k\b|mille|ألف|الف|مليون|dt|dinar|tnd|دينار|د)?)/i);
+    if (generalMatch && generalMatch[1]) {
+      const parsed = parseTunisianAmountServer(generalMatch[1]);
+      if (parsed) {
+        detectedFinancing = parsed;
       }
     }
   }
@@ -55,7 +152,7 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
   let purpose: string | undefined = undefined;
   if (lower.includes('équipement') || lower.includes('equipement') || lower.includes('machine') || lower.includes('outillage') || lower.includes('معدات') || lower.includes('آلات')) {
     purpose = 'equipment';
-  } else if (lower.includes('création') || lower.includes('creation') || lower.includes('nouveau projet') || lower.includes('بعث') || lower.includes('تأسيس')) {
+  } else if (lower.includes('créer') || lower.includes('création') || lower.includes('creation') || lower.includes('nouveau projet') || lower.includes('lancement') || lower.includes('بعث') || lower.includes('تأسيس')) {
     purpose = 'creation';
   } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('tresorerie') || lower.includes('تسيير') || lower.includes('سيولة')) {
     purpose = 'working_capital';
@@ -68,7 +165,7 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
   }
 
   let sector: string | undefined = undefined;
-  if (lower.includes('textile') || lower.includes('usine') || lower.includes('industr') || lower.includes('صناعة')) {
+  if (lower.includes('vêtement') || lower.includes('vetement') || lower.includes('confection') || lower.includes('textile') || lower.includes('habillement') || lower.includes('usine') || lower.includes('industr') || lower.includes('صناعة') || lower.includes('ملابس')) {
     sector = 'industry';
   } else if (lower.includes('agri') || lower.includes('fella') || lower.includes('فلاح')) {
     sector = 'agriculture_agribusiness';
@@ -116,17 +213,18 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
   let businessStage: string | undefined = undefined;
   if (lower.includes('idée') || lower.includes('idee') || lower.includes('étude') || lower.includes('فكرة') || lower.includes('دراسة')) {
     businessStage = 'idea_project';
-  } else if (lower.includes('en cours de constitution') || lower.includes('en cours de création') || lower.includes('طور التأسيس')) {
+  } else if (lower.includes('créer') || lower.includes('création') || lower.includes('creation') || lower.includes('en cours de constitution') || lower.includes('en cours de création') || lower.includes('طور التأسيس') || lower.includes('بعث')) {
     businessStage = 'creation_underway';
   } else if (lower.includes('moins de 2 ans') || lower.includes('nouvelle entreprise') || lower.includes('حديثة')) {
     businessStage = 'established_under_2y';
-  } else if (lower.includes('plus de 2 ans') || lower.includes('établie') || lower.includes('قديمة')) {
+  } else if (lower.includes('plus de 2 ans') || lower.includes('établie') || lower.includes('existante') || lower.includes('extension') || lower.includes('قديمة') || lower.includes('قائمة')) {
     businessStage = 'established_over_2y';
   }
 
   const missingCriticalFields: string[] = [];
-  if (!detectedAmount) missingCriticalFields.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'montant_financement');
-  missingCriticalFields.push(language === 'ar' ? 'المساهمة الذاتية (Apport personnel)' : 'apport_personnel');
+  if (!detectedFinancing) missingCriticalFields.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'montant_financement');
+  if (!detectedContribution) missingCriticalFields.push(language === 'ar' ? 'المساهمة الذاتية (Apport personnel)' : 'apport_personnel');
+  if (!detectedProjectCost) missingCriticalFields.push(language === 'ar' ? 'الكلفة الجملية للمشروع' : 'cout_projet');
   if (!purpose) missingCriticalFields.push(language === 'ar' ? 'طبيعة الاحتياج (بعث، معدات، سيولة...)' : 'objet_financement');
   if (!sector) missingCriticalFields.push(language === 'ar' ? 'قطاع النشاط' : 'secteur_activite');
   if (!location) missingCriticalFields.push(language === 'ar' ? 'الولاية / الموقع الجغرافي' : 'gouvernorat');
@@ -149,7 +247,9 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
       ];
 
   const summaryParts: string[] = [];
-  if (detectedAmount) summaryParts.push(`${detectedAmount.toLocaleString('fr-FR')} DT`);
+  if (detectedProjectCost) summaryParts.push(`Coût: ${detectedProjectCost.toLocaleString('fr-FR')} DT`);
+  if (detectedContribution) summaryParts.push(`Apport: ${detectedContribution.toLocaleString('fr-FR')} DT`);
+  if (detectedFinancing) summaryParts.push(`Besoin: ${detectedFinancing.toLocaleString('fr-FR')} DT`);
   if (purpose) summaryParts.push(purpose);
   if (sector) summaryParts.push(sector);
   if (location) summaryParts.push(location);
@@ -159,13 +259,13 @@ function getIntakeFallback(query: string = '', language: string = 'fr') {
         ? `المعطيات المكتشفة في نصكم: ${summaryParts.join(' • ')}. يرجى استكمال المعطيات الناقصة في خطوة التأكيد.`
         : `لم يتم التعرف على معطيات دقيقة في النص. يرجى مراجعة وتحديد التفاصيل في شاشة التأكيد.`)
     : (summaryParts.length > 0
-        ? `Paramètres identifiés dans votre texte : ${summaryParts.join(' • ')}. Veuillez compléter ou corriger les éléments manquants ci-dessous.`
+        ? `Paramètres identifiés dans votre texte : ${summaryParts.join(' • ')}. Veuillez vérifier ou corriger les données ci-dessous.`
         : `Aucun paramètre chiffré ou sectoriel précis n'a pu être extrait avec certitude. Veuillez renseigner directement votre projet ci-dessous.`);
 
   return {
-    financingRequested: detectedAmount,
-    totalProjectCost: undefined, // financingRequested ≠ totalProjectCost. Must remain undefined unless explicitly stated
-    userContribution: undefined,
+    financingRequested: detectedFinancing,
+    totalProjectCost: detectedProjectCost,
+    userContribution: detectedContribution,
     purpose,
     sector,
     location,

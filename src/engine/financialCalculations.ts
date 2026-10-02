@@ -110,33 +110,31 @@ export function calculateFinancingCost(
     };
   }
 
-  // 2. Pure Guarantee Mechanism (SOTUGAR) - Commission réglementée
+  // 2. Pure Guarantee Mechanism (SOTUGAR) - Mechanism-Specific Guarantee Support
   if (program.category === 'guarantee') {
-    const commissionAnnual = program.estimatedRateAnnual ?? 0.75;
     const durationMonths = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
       : 60;
-    const years = durationMonths / 12;
-    const totalGuaranteeFee = Math.round(financingRequested * (commissionAnnual / 100) * years);
 
     return {
-      canCalculateReliably: true,
-      rateOrigin: 'official_current_benchmark',
+      canCalculateReliably: false,
+      rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: 'Commission de garantie SOTUGAR réglementée',
-        ar: 'عمولة ضمان عمومي سوتوغار محددة قانوناً'
+        fr: 'Commission variable selon le mécanisme',
+        ar: 'عمولة متغيرة حسب آلية الضمان'
       },
-      rateBenchmarkSource: 'SOTUGAR / Ministère des Finances',
-      rateBenchmarkDate: 'Barème réglementaire officiel 2026',
-      monthlyPayment: undefined, // Not a monthly installment loan
+      monthlyPayment: undefined, // SOTUGAR does not grant direct loans or monthly installment debt
       totalRepayment: undefined,
-      totalCostOfFinancing: totalGuaranteeFee,
-      assumedRatePercent: commissionAnnual,
+      totalCostOfFinancing: undefined,
       durationMonths,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Commission de garantie publique légale de ${commissionAnnual}% l'an sur ${years} ans (~${totalGuaranteeFee.toLocaleString('fr-FR')} DT au total). Attention : cette commission s'ajoute aux intérêts et amortissements du prêt bancaire garanti.`,
-        ar: `عمولة ضمان عمومي بنسبة ${commissionAnnual}% سنوياً على ${years} سنوات (~${totalGuaranteeFee.toLocaleString('fr-FR')} د إجمالاً). تنبيه: هذا المبلغ يضاف لفوائد وأصل القرض البنكي المضمون.`
+        fr: "SOTUGAR est un fonds public de garantie intervenant en couverture des crédits bancaires et non un prêteur direct. La commission ou contribution de garantie est spécifique au mécanisme sollicité (FNG, lignes dédiées) et collectée via l'établissement bancaire partenaire. À confirmer selon le mécanisme de garantie et les conditions applicables.",
+        ar: "الشركة التونسية للضمان (SOTUGAR) هي صندوق عمومي لتغطية مخاطر القروض البنكية وليست جهة إقراض مباشر. عمولة أو مساهمة الضمان تختلف بحسب الآلية المعتمدة وتُستخلص عبر البنك الشريك. للتأكيد حسب آلية الضمان والشروط المعمول بها."
+      },
+      unreliableReason: {
+        fr: "Commission/contribution : à confirmer selon le mécanisme de garantie et les conditions applicables de la banque partenaire.",
+        ar: "العمولة أو المساهمة : للتأكيد حسب آلية الضمان المعنية وشروط البنك الشريك."
       }
     };
   }

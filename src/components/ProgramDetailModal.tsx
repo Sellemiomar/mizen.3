@@ -196,9 +196,15 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
                   <span className={`text-[10px] font-semibold px-1 py-0.2 rounded border ${
                     program.rateType === 'subsidized'
                       ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : program.category === 'guarantee'
+                      ? 'text-blue-700 bg-blue-50 border-blue-200'
                       : 'text-amber-800 bg-amber-50 border-amber-200'
                   }`}>
-                    {program.rateType === 'subsidized' ? '✓ Décret' : (program.rateType === 'variable_tmm' ? 'TMM BCT' : 'À négocier')}
+                    {program.rateType === 'subsidized' 
+                      ? '✓ Décret' 
+                      : program.category === 'guarantee'
+                      ? 'Garantie publique'
+                      : (program.rateType === 'variable_tmm' ? 'TMM BCT' : 'À négocier')}
                   </span>
                 </div>
                 <span className="text-sm font-bold text-slate-900">

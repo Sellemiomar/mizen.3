@@ -1,4 +1,4 @@
-import { Provider, FinancingProgram } from '../types/financing';
+import { Provider, FinancingProgram, DemoScenario } from '../types/financing';
 
 export const TUNISIAN_GOVERNORATES = [
   'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 
@@ -185,6 +185,28 @@ export const PROVIDERS: Provider[] = [
     officialBadgeText: {
       fr: 'Dispositif National pour l’Initiative Privée',
       ar: 'جهاز وطني لمساندة العمل المستقل'
+    }
+  },
+  {
+    id: 'bh_bank',
+    name: 'Banque de l’Habitat (BH Bank)',
+    acronym: 'BH Bank',
+    type: 'public_bank',
+    description: {
+      fr: 'Établissement bancaire historique de référence pour le financement de l’habitat, du premier logement et des projets PME.',
+      ar: 'المؤسسة البنكية التاريخية المرجعية لتمويل السكن واقتناء المسكن الأول وقروض الاستثمار.'
+    },
+    website: 'https://www.bhbank.tn',
+    headquarters: 'Tunis, Avenue Mohamed V',
+    networkCoverage: {
+      fr: 'Réseau de plus de 145 agences à l’échelle nationale.',
+      ar: 'شبكة تتجاوز 145 فرعاً بنكياً بكامل تراب الجمهورية.'
+    },
+    contactEmail: 'contact@bhbank.tn',
+    contactPhone: '+216 71 126 000',
+    officialBadgeText: {
+      fr: 'Banque Publique de l’Habitat & Entreprises',
+      ar: 'بنك عمومي رائد في السكن والمؤسسات'
     }
   }
 ];
@@ -497,10 +519,9 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     minContributionPercent: 15,
     rateType: 'fixed',
     rateDescription: {
-      fr: 'Commission de garantie minime de 0,5% à 1% l’an intégrée dans le plan de remboursement bancaire.',
-      ar: 'عمولة ضمان سنوية رمزية بين 0.5% و 1% مدمجة ضمن جدول استخلاص القرض البنكي.'
+      fr: 'Commission / contribution : à confirmer selon le mécanisme de garantie et les conditions applicables.',
+      ar: 'عمولة / مساهمة الضمان : للتأكيد حسب آلية الضمان والشروط المعمول بها.'
     },
-    estimatedRateAnnual: 0.75,
     durationMonthsMin: 24,
     durationMonthsMax: 120,
     gracePeriodMonthsMin: 6,
@@ -588,11 +609,11 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       sourceTitle: 'SOTUGAR - Mécanismes de garantie des investissements PME',
       sourceType: 'official_portal',
       dateChecked: '2026-07-01',
-      verifiedFields: ['maxAmount', 'rate', 'guaranteeRequirements', 'eligibilityCriteria'],
-      unverifiedFields: ['partnerBankApproval'],
+      verifiedFields: ['minAmount', 'maxAmount', 'purposes', 'guaranteeRequirements', 'eligibilityCriteria'],
+      unverifiedFields: ['commissionRate', 'partnerBankApproval'],
       notes: {
-        fr: 'Taux de couverture (jusqu’à 75%) et commissions vérifiés sur le portail SOTUGAR. L’octroi effectif reste conditionné à l’accord préalable de la banque partenaire.',
-        ar: 'تم التثبت من نسب التغطية وعمولة الضمان من البوابة الرسمية. إصدار الضمان مشروط بالموافقة المسبقة للبنك المقرض.'
+        fr: 'Plafonds d’intervention, quotités de couverture et éligibilité vérifiés sur le portail officiel SOTUGAR. La commission ou contribution exacte dépend du mécanisme de garantie spécifique (FNG, lignes sectorielles) et de la convention avec la banque partenaire.',
+        ar: 'تم التثبت من سقوف التدخل ونسب التغطية وشروط الأهلية من البوابة الرسمية لسوتوغار. العمولة أو المساهمة الدقيقة تختلف بحسب آلية الضمان المعنية والاتفاقية مع البنك الشريك.'
       },
       lastUpdateYear: 2026
     }
@@ -1279,7 +1300,779 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       },
       lastUpdateYear: 2026
     }
+  },
+  {
+    id: 'premier_logement',
+    code: 'MEHAT-PREM-LOG',
+    providerId: 'bh_bank',
+    name: {
+      fr: 'Programme Premier Logement (MEHAT / BH Bank)',
+      ar: 'برنامج المسكن الأول (وزارة التجهيز / بنك الإسكان)'
+    },
+    tagline: {
+      fr: 'Crédit d’autofinancement bonifié à 2% (différé 5 ans) adossé à un prêt bancaire acquéreur pour premier logement.',
+      ar: 'قرض تمويل ذاتي ميسر بنسبة 2% (إمهال 5 سنوات) مع قرض بنكي لاقتناء المسكن الأول.'
+    },
+    category: 'subsidized_loan',
+    purposes: ['first_home'],
+    minAmount: 30000,
+    maxAmount: 220000,
+    minContributionPercent: 15,
+    rateType: 'subsidized',
+    rateDescription: {
+      fr: 'Prêt d’autofinancement bonifié de l’État à 2% l’an (sur 20% du prix) + prêt bancaire principal au taux du marché.',
+      ar: 'قرض تمويل ذاتي مدعوم من الدولة بنسبة 2% سنوياً (لتغطية 20% من الثمن) + قرض بنكي بالسعر الجاري.'
+    },
+    estimatedRateAnnual: 2.0,
+    durationMonthsMin: 60,
+    durationMonthsMax: 240,
+    gracePeriodMonthsMin: 60,
+    gracePeriodMonthsMax: 60,
+    guaranteeRequirements: {
+      fr: 'Hypothèque de premier rang sur le logement acquis et assurance décès-invalidité.',
+      ar: 'رهن عقاري من الدرجة الأولى على المسكن المقتنى وتأمين على الوفاة والعجز.'
+    },
+    targetAudience: {
+      fr: 'Ménages de la classe moyenne (revenu familial mensuel brut entre 4,5 et 10 fois le SMIG) accédant à leur premier logement neuf.',
+      ar: 'العائلات متوسطة الدخل (الدخل العائلي بين 4.5 و 10 أضعاف الأجر الأدنى SMIG) لاقتناء مسكنهم الأول.'
+    },
+    eligibilityCriteria: {
+      stages: ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'],
+      sectors: ['services', 'industry', 'commerce', 'ict_tech', 'agriculture_agribusiness', 'crafts_trades', 'other'],
+      allowedLegalForms: ['individual', 'suarl', 'sarl', 'sa', 'not_yet_created'],
+      otherRules: [
+        {
+          fr: 'Le demandeur et son conjoint ne doivent pas être propriétaires d’un autre logement à usage d’habitation.',
+          ar: 'ألا يكون المنتفع أو قرينه مالكاً لمسكن آخر معد للسكنى.'
+        },
+        {
+          fr: 'Le logement doit être acquis auprès d’un promoteur immobilier agréé (logement neuf individuel ou collectif).',
+          ar: 'أن يتم اقتناء المسكن لدى باعث عقاري معتمد (مسكن فردي أو شقة جديدة).'
+        }
+      ]
+    },
+    requiredDocuments: [
+      {
+        id: 'promesse_vente_promoteur',
+        name: {
+          fr: 'Promesse de vente établie par un promoteur immobilier agréé',
+          ar: 'وعد بيع محرر من باعث عقاري مصادق عليه'
+        },
+        category: 'legal',
+        mandatory: true
+      },
+      {
+        id: 'fiches_paie_conjoints',
+        name: {
+          fr: 'Fiches de paie des 3 derniers mois du demandeur et du conjoint + déclaration unique des revenus',
+          ar: 'كشوف المرتبات لآخر 3 أشهر للزوجين والتصريح السنوي بالدخل'
+        },
+        category: 'financial',
+        mandatory: true
+      },
+      {
+        id: 'attestation_non_propriete',
+        name: {
+          fr: 'Attestation sur l’honneur de non-propriété d’un logement',
+          ar: 'تصريح على الشرف بعدم ملكية مسكن'
+        },
+        category: 'identity',
+        mandatory: true
+      }
+    ],
+    applicationSteps: [
+      {
+        step: 1,
+        title: { fr: 'Choix du logement et promesse de vente', ar: 'اختيار المسكن وتوقيع وعد البيع' },
+        description: {
+          fr: 'Signature de la promesse de vente auprès du promoteur immobilier conventionné.',
+          ar: 'إمضاء وعد البيع لدى الباعث العقاري المنخرط في البرنامج.'
+        }
+      },
+      {
+        step: 2,
+        title: { fr: 'Dépôt du dossier en agence BH Bank / Partenaire', ar: 'إيداع الملف بالفرع البنكي' },
+        description: {
+          fr: 'Vérification de l’éligibilité aux critères MEHAT et étude du dossier de solvabilité.',
+          ar: 'التثبت من شروط الوزارة ودراسة القدرة على السداد.'
+        }
+      },
+      {
+        step: 3,
+        title: { fr: 'Déblocage conjoint de l’apport bonifié et du crédit', ar: 'صرف قرض التمويل الذاتي والقرض البنكي' },
+        description: {
+          fr: 'Signature de l’acte notarié et versement direct au promoteur.',
+          ar: 'إبرام العقد وتنزيل المبلغ مباشرة لفائدة الباعث العقاري.'
+        }
+      }
+    ],
+    importantCaveats: [
+      {
+        fr: 'Le taux bonifié de 2% s’applique exclusivement à la tranche du crédit d’autofinancement (jusqu’à 20% du coût du bien).',
+        ar: 'نسبة الفائدة المدعومة 2% تنطبق حصراً على قسط التمويل الذاتي (حتى 20% من ثمن العقار).'
+      },
+      {
+        fr: 'Le reste du prix fait l’objet d’un crédit bancaire acquéreur classique aux conditions de marché.',
+        ar: 'المبلغ المتبقي يمول عبر قرض بنكي عقاري عادي وفق شروط السوق.'
+      }
+    ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: false,
+    verification: {
+      status: 'PARTIALLY_VERIFIED',
+      sourceUrl: 'https://www.mehat.gov.tn',
+      sourceTitle: 'Ministère de l’Équipement et de l’Habitat - Cadre réglementaire Premier Logement',
+      sourceType: 'decree_law',
+      dateChecked: '2026-06-10',
+      verifiedFields: ['purposes', 'rateType', 'gracePeriodMonthsMax', 'minContributionPercent', 'targetAudience'],
+      unverifiedFields: ['commercialBankSpread', 'exactPropertyCapUpdate'],
+      notes: {
+        fr: 'Conditions d’éligibilité (classe moyenne 4.5x à 10x SMIG), taux bonifié de 2% et différé de 5 ans vérifiés d’après le Décret gouvernemental n° 2017-161. La marge du prêt principal complémentaire dépend de la banque.',
+        ar: 'تم التحقق من شروط الدخل ونسبة 2% وفترة الإمهال 5 سنوات بموجب الأمر الحكومي عدد 161 لسنة 2017. هامش القرض البنكي المكمل يحدده البنك المعني.'
+      },
+      lastUpdateYear: 2026
+    }
+  },
+  {
+    id: 'foprolos_construction',
+    code: 'FOPROLOS-CONST',
+    providerId: 'bh_bank',
+    name: {
+      fr: 'FOPROLOS - Crédit Construction & Aménagement Logement',
+      ar: 'صندوق النهوض بالمسكن لفائدة الأجراء (فوبرولوس) - قرض البناء'
+    },
+    tagline: {
+      fr: 'Prêt à taux réduit (5% à 7%) pour construction ou aménagement de logement pour salariés affiliés.',
+      ar: 'قرض بنسبة فائدة مخفضة (5% إلى 7%) لبناء مسكن أو تهيئته للأجراء المنخرطين بالصناديق الاجتماعية.'
+    },
+    category: 'subsidized_loan',
+    purposes: ['home_construction', 'first_home'],
+    minAmount: 15000,
+    maxAmount: 140000,
+    minContributionPercent: 10,
+    rateType: 'subsidized',
+    rateDescription: {
+      fr: 'Taux bonifié réglementé de 5% à 7% l’an selon la tranche de revenu du salarié affilié.',
+      ar: 'نسبة فائدة تفاضلية قانونية بين 5% و 7% سنوياً بحسب فئة دخل الأجير المنخرط.'
+    },
+    estimatedRateAnnual: 5.5,
+    durationMonthsMin: 60,
+    durationMonthsMax: 300,
+    gracePeriodMonthsMin: 12,
+    gracePeriodMonthsMax: 24,
+    guaranteeRequirements: {
+      fr: 'Hypothèque sur le terrain/construction et retenue à la source sur salaire.',
+      ar: 'رهن على العقار/قطعة الأرض واقتطاع من الأجر عبر المؤجر.'
+    },
+    targetAudience: {
+      fr: 'Salariés du secteur public et privé affiliés à la CNSS ou CNRPS construisant leur premier logement.',
+      ar: 'الأجراء والموظفون المنخرطون بصندوق الضمان الاجتماعي أو التقاعد الراغبون في بناء مسكن فردي.'
+    },
+    eligibilityCriteria: {
+      stages: ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'],
+      sectors: ['services', 'industry', 'commerce', 'ict_tech', 'agriculture_agribusiness', 'crafts_trades', 'other'],
+      allowedLegalForms: ['individual', 'suarl', 'sarl', 'sa', 'not_yet_created'],
+      otherRules: [
+        {
+          fr: 'Justifier d’une ancienneté de cotisation aux régimes de sécurité sociale (CNSS / CNRPS).',
+          ar: 'إثبات أقدمية اشتراك بالضمان الاجتماعي أو التقاعد.'
+        },
+        {
+          fr: 'Être titulaire d’un titre foncier individuel ou attestation de propriété du terrain à bâtir.',
+          ar: 'ملكية شهادة ملكية فردية أو رسم عقاري لقطعة الأرض المراد بناؤها.'
+        }
+      ]
+    },
+    requiredDocuments: [
+      {
+        id: 'titre_foncier',
+        name: {
+          fr: 'Certificat de propriété foncière récent du terrain',
+          ar: 'شهادة ملكية عقارية حديثة لقطعة الأرض'
+        },
+        category: 'legal',
+        mandatory: true
+      },
+      {
+        id: 'permis_batir',
+        name: {
+          fr: 'Permis de bâtir en cours de validité et plan approuvé',
+          ar: 'رخصة بناء سارية المفعول ومثال هندسي مصادق عليه'
+        },
+        category: 'technical_business_plan',
+        mandatory: true
+      },
+      {
+        id: 'attestation_affiliation_sociale',
+        name: {
+          fr: 'Attestation d’affiliation et de salaires CNSS/CNRPS',
+          ar: 'شهادة انخراط وتصريح بالأجور من صندوق الضمان الاجتماعي أو التقاعد'
+        },
+        category: 'financial',
+        mandatory: true
+      }
+    ],
+    applicationSteps: [
+      {
+        step: 1,
+        title: { fr: 'Dépôt du dossier technique de construction', ar: 'إيداع الملف الفني للبناء' },
+        description: {
+          fr: 'Présentation du permis de bâtir, du devis estimatif des travaux et des justificatifs d’affiliation.',
+          ar: 'تقديم رخصة البناء والتقدير المالي للأشغال وشهادة الانخراط الاجتماعي.'
+        }
+      },
+      {
+        step: 2,
+        title: { fr: 'Instruction et visite d’expert', ar: 'دراسة الملف والمعاينة' },
+        description: {
+          fr: 'Évaluation de la faisabilité et calcul de la capacité d’endettement selon le barème FOPROLOS.',
+          ar: 'احتساب نسبة الاقتطاع المسموح بها وتقييم مراحل البناء.'
+        }
+      },
+      {
+        step: 3,
+        title: { fr: 'Déblocage par tranches successives', ar: 'صرف القرض على أقساط' },
+        description: {
+          fr: 'Paiement au fur et à mesure de l’avancement des travaux (fondations, gros œuvres, finitions).',
+          ar: 'صرف المبالغ حسب تقدم أشغال البناء (الأساسات، الهيكل، والتشطيب).'
+        }
+      }
+    ],
+    importantCaveats: [
+      {
+        fr: 'Les fonds sont débloqués par tranches conditionnées au contrôle physique de l’état d’avancement des travaux.',
+        ar: 'تصرف أقساط التمويل تدريجياً بناءً على معاينة تقدم أشغال البناء فعلياً.'
+      }
+    ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: false,
+    verification: {
+      status: 'PARTIALLY_VERIFIED',
+      sourceUrl: 'https://www.bhbank.tn',
+      sourceTitle: 'BH Bank / FOPROLOS - Guide du crédit logement social et moyen',
+      sourceType: 'bank_fiche',
+      dateChecked: '2026-05-15',
+      verifiedFields: ['purposes', 'rateType', 'minContributionPercent', 'durationMonthsMax'],
+      unverifiedFields: ['exactIncomeScaleCeiling', 'inspectionFees'],
+      notes: {
+        fr: 'Taux bonifié de 5% à 7% et durées jusqu’à 25 ans vérifiés d’après les barèmes FOPROLOS. Le plafond exact et la quotité finançable dépendent de la catégorie salariale du demandeur.',
+        ar: 'تم التثبت من نسبة الفائدة المدعومة (5%-7%) والمدة حتى 25 سنة. السقف الدقيق يتبع فئة الأجر المصرح به لدى الصندوق.'
+      },
+      lastUpdateYear: 2026
+    }
+  },
+  {
+    id: 'leasing_vehicule_pro',
+    code: 'LEAS-VEHIC-PRO',
+    providerId: 'bh_bank',
+    name: {
+      fr: 'Leasing Véhicule Utilitaire & Flotte Professionnelle',
+      ar: 'إيجار مالي (ليزينغ) للسيارات النفعية والشاحنات المهنية'
+    },
+    tagline: {
+      fr: 'Crédit-bail pour véhicules utilitaires neufs ou récents destinés aux entreprises, artisans et professions libérales.',
+      ar: 'إيجار مالي لاقتناء عربات نفعية وشاحنات جديدة للشركات والمهنيين والحرفيين.'
+    },
+    category: 'bank_loan',
+    purposes: ['equipment', 'vehicle', 'expansion'],
+    minAmount: 15000,
+    maxAmount: 250000,
+    minContributionPercent: 15,
+    rateType: 'variable_tmm',
+    rateDescription: {
+      fr: 'Loyer financier indexé sur le TMM officiel + marge du bailleur calculée selon la durée du contrat et la valeur résiduelle.',
+      ar: 'أقساط إيجار مالي مرتبطة بنسبة TMM + هامش شركة الإيجار المالي حسب مدة العقد والقيمة المتبقية.'
+    },
+    durationMonthsMin: 24,
+    durationMonthsMax: 60,
+    gracePeriodMonthsMin: 0,
+    gracePeriodMonthsMax: 3,
+    guaranteeRequirements: {
+      fr: 'Propriété du véhicule conservée par le bailleur pendant la durée du contrat, assurance tous risques avec délégation.',
+      ar: 'ملكية العربة تبقى لشركة الليزينغ طيلة مدة العقد مع تأمين شامل لفائدة المؤجر.'
+    },
+    targetAudience: {
+      fr: 'Entreprises, commerçants, agriculteurs et professionnels indépendants immatriculés au RNE ou patentés.',
+      ar: 'الشركات والتجار والفلاحون وأصحاب المهن الحرة المسجلون بالسجل الوطني للمؤسسات.'
+    },
+    eligibilityCriteria: {
+      stages: ['creation_underway', 'established_under_2y', 'established_over_2y'],
+      sectors: ['industry', 'services', 'commerce', 'crafts_trades', 'agriculture_agribusiness', 'ict_tech', 'tourism', 'renewable_energy', 'other'],
+      allowedLegalForms: ['individual', 'suarl', 'sarl', 'sa', 'agricultural_coop'],
+      otherRules: [
+        {
+          fr: 'Le véhicule doit avoir un usage principalement professionnel ou commercial (fourgonnette, pick-up, utilitaire, véhicule de société).',
+          ar: 'أن تكون العربة مخصصة لنشاط مهني أو تجاري (سيارة نفعية، شاحنة خفيفة، وسيلة نقل بضائع).'
+        }
+      ]
+    },
+    requiredDocuments: [
+      {
+        id: 'facture_proforma_vehicule',
+        name: {
+          fr: 'Facture proforma du concessionnaire agréé',
+          ar: 'فاتورة تقديرية من وكيل سيارات معتمد'
+        },
+        category: 'quotations_invoices',
+        mandatory: true
+      },
+      {
+        id: 'registre_rne_patente',
+        name: {
+          fr: 'Extrait RNE récent et déclaration d’existence fiscale',
+          ar: 'مضمون حديث من السجل الوطني للمؤسسات والتصريح بالوجود'
+        },
+        category: 'legal',
+        mandatory: true
+      },
+      {
+        id: 'etats_financiers_releves',
+        name: {
+          fr: 'Derniers bilans comptables ou relevés bancaires (6 derniers mois)',
+          ar: 'القوائم المالية الأخيرة أو كشوفات الحساب البنكي لـ 6 أشهر'
+        },
+        category: 'financial',
+        mandatory: true
+      }
+    ],
+    applicationSteps: [
+      {
+        step: 1,
+        title: { fr: 'Choix du véhicule et devis concessionnaire', ar: 'اختيار العربة والحصول على الفاتورة التقديرية' },
+        description: {
+          fr: 'Obtention de la proforma détaillée auprès d’un concessionnaire ou revendeur agréé en Tunisie.',
+          ar: 'الحصول على فاتورة تقديرية مفصلة من وكيل سيارات معتمد بالبلاد التونسية.'
+        }
+      },
+      {
+        step: 2,
+        title: { fr: 'Étude du dossier de leasing', ar: 'دراسة الملف وتحديد جدول الاستخلاص' },
+        description: {
+          fr: 'Analyse de solvabilité de l’entreprise et fixation du premier loyer majoré (apport) et du tableau d’amortissement.',
+          ar: 'تقييم الملاءة المالية للمؤسسة وضبط القسط الأول المسبق وجدول الإهلاك.'
+        }
+      }
+    ],
+    importantCaveats: [
+      {
+        fr: 'Les conditions finales (loyer, valeur de rachat) sont contractuelles et fixées lors de l’offre ferme du bailleur.',
+        ar: 'الشروط النهائية للأقساط وقيمة إعادة الشراء تحددها المؤسسة المالية في العقد النهائي.'
+      }
+    ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: true,
+    verification: {
+      status: 'PARTIALLY_VERIFIED',
+      sourceUrl: 'https://www.bhbank.tn',
+      sourceTitle: 'BH Bank / Établissements de Leasing - Fiche Produit Véhicules Professionnels',
+      sourceType: 'bank_fiche',
+      dateChecked: '2026-06-10',
+      verifiedFields: ['purposes', 'rateType', 'minContributionPercent', 'durationMonthsMax'],
+      unverifiedFields: ['exactMonthlyLeaseRate', 'fileProcessingFees'],
+      notes: {
+        fr: 'Durée maximale (60 mois) et apport initial minimal (15%) vérifiés d’après les pratiques réglementaires du leasing professionnel en Tunisie. Le loyer exact nécessite l’offre formelle du bailleur.',
+        ar: 'تم التحقق من المدة القصوى (60 شهراً) والتمويل الذاتي الأدنى (15%). القسط الشهري الدقيق يتطلب عرضاً بنكياً رسمياً.'
+      },
+      lastUpdateYear: 2026
+    }
+  },
+  {
+    id: 'banque_credit_auto',
+    code: 'BNK-CREDIT-AUTO',
+    providerId: 'bh_bank',
+    name: {
+      fr: 'Crédit Automobile Bancaire (Particuliers & Salariés)',
+      ar: 'قرض السيارة للأفراد والأجراء'
+    },
+    tagline: {
+      fr: 'Prêt bancaire amortissable pour acquisition de véhicule neuf ou d’occasion (sous conditions d’âge de la carte grise).',
+      ar: 'قرض بنكي لاقتناء سيارة جديدة أو مستعملة وفق شروط الأقدمية والقدرة على السداد.'
+    },
+    category: 'bank_loan',
+    purposes: ['equipment', 'vehicle'],
+    minAmount: 10000,
+    maxAmount: 100000,
+    minContributionPercent: 20,
+    rateType: 'variable_tmm',
+    rateDescription: {
+      fr: 'Taux variable indexé sur le TMM officiel de la BCT + marge bancaire (selon circulaire BCT sur les crédits à la consommation).',
+      ar: 'نسبة متغيرة مرتبطة بمعدل TMM للبنك المركزي + هامش بنكي وفق مناشير البنك المركزي التونسي.'
+    },
+    durationMonthsMin: 12,
+    durationMonthsMax: 84,
+    gracePeriodMonthsMin: 0,
+    gracePeriodMonthsMax: 0,
+    guaranteeRequirements: {
+      fr: 'Gage sans dépossession sur la carte grise du véhicule au profit de la banque, assurance tous risques, cession sur salaire.',
+      ar: 'رهن على البطاقة الرمادية لفائدة البنك وتأمين شامل على العربة وتوكيل باقتطاع من المرتب.'
+    },
+    targetAudience: {
+      fr: 'Particuliers salariés (titulaires d’un CDI avec ancienneté confirmée), fonctionnaires et professionnels justifiant de revenus réguliers.',
+      ar: 'الأجراء الدائمون وموظفو الدولة وأصحاب المهن الحرة ذوو المداخيل القارة.'
+    },
+    eligibilityCriteria: {
+      stages: ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'],
+      sectors: ['services', 'industry', 'commerce', 'ict_tech', 'agriculture_agribusiness', 'crafts_trades', 'other'],
+      allowedLegalForms: ['individual', 'suarl', 'sarl', 'sa', 'not_yet_created'],
+      otherRules: [
+        {
+          fr: 'Le taux d’endettement global de l’emprunteur (tous crédits confondus) ne doit généralement pas dépasser 40% du revenu net mensuel.',
+          ar: 'ألا تتجاوز نسبة الاقتطاع الجملية للديون 40% من الدخل الشهري الصافي للمقترض.'
+        },
+        {
+          fr: 'Pour les véhicules d’occasion, l’âge du véhicule à l’échéance du prêt ne doit pas dépasser le plafond fixé par la banque (généralement 8 à 10 ans).',
+          ar: 'بالنسبة للسيارات المستعملة، ألا يتجاوز عمر السيارة عند نهاية سداد القرض السقف المعتمد لدى البنك.'
+        }
+      ]
+    },
+    requiredDocuments: [
+      {
+        id: 'piece_identite_cin',
+        name: {
+          fr: 'Carte d’identité nationale (CIN) de l’emprunteur',
+          ar: 'بطاقة التعريف الوطنية للمقترض'
+        },
+        category: 'identity',
+        mandatory: true
+      },
+      {
+        id: 'bulletins_paie_justificatifs_revenu',
+        name: {
+          fr: 'Trois dernières fiches de paie et attestation de travail',
+          ar: 'بطاقات الخلاص لآخر 3 أشهر وشهادة عمل سارية'
+        },
+        category: 'financial',
+        mandatory: true
+      },
+      {
+        id: 'carte_grise_ou_devis_proforma',
+        name: {
+          fr: 'Facture proforma (véhicule neuf) ou copie carte grise + contrat/promesse de vente (occasion)',
+          ar: 'فاتورة تقديرية (سيارة جديدة) أو نسخة من البطاقة الرمادية ووعد بيع (مستعملة)'
+        },
+        category: 'quotations_invoices',
+        mandatory: true
+      }
+    ],
+    applicationSteps: [
+      {
+        step: 1,
+        title: { fr: 'Dépôt du dossier en agence bancaire', ar: 'إيداع الملف بفرع البنك' },
+        description: {
+          fr: 'Remise des justificatifs de salaire, de la proforma ou promesse de vente du véhicule.',
+          ar: 'تسليم وثائق الدخل والبطاقة الرمادية أو الفاتورة التقديرية للفرع.'
+        }
+      },
+      {
+        step: 2,
+        title: { fr: 'Accord de principe et gage de la carte grise', ar: 'الموافقة المبدئية ورهن البطاقة الرمادية' },
+        description: {
+          fr: 'Inscription du gage à l’Agence Technique des Transports Terrestres (ATTT) et émission du chèque au vendeur.',
+          ar: 'تسجيل الرهن لدى الوكالة الفنية للنقل البري وتسليم الشيك للبائع.'
+        }
+      }
+    ],
+    importantCaveats: [
+      {
+        fr: 'L’apport personnel minimal est réglementé par la circulaire BCT sur les crédits à la consommation (20% à 40% selon puissance fiscale).',
+        ar: 'التمويل الذاتي الأدنى يخضع لمنشور البنك المركزي التونسي الخاص بالقروض الاستهلاكية (بين 20% و40%).'
+      }
+    ],
+    hasRegionalDevelopmentBonus: false,
+    accessibleWithoutHeavyCollateral: false,
+    verification: {
+      status: 'PARTIALLY_VERIFIED',
+      sourceUrl: 'https://www.bhbank.tn',
+      sourceTitle: 'BH Bank - Guide du Crédit Automobile aux Particuliers & Circulaires BCT',
+      sourceType: 'bank_fiche',
+      dateChecked: '2026-06-10',
+      verifiedFields: ['purposes', 'rateType', 'minContributionPercent', 'durationMonthsMax'],
+      unverifiedFields: ['exactInsuranceQuote', 'administrativeFolderFees'],
+      notes: {
+        fr: 'Durée maximale (jusqu’à 7 ans selon véhicule) et seuil d’apport minimal (20%) conformes aux règles prudentielles BCT. Le taux effectif global (TEG) et l’assurance sont calculés lors de l’accord agence.',
+        ar: 'تم التحقق من المدة القصوى (حتى 7 سنوات) والتمويل الذاتي (20%) طبقاً لمناشير البنك المركزي. نسبة الفائدة الفعلية والتأمين تحدد مع الفرع.'
+      },
+      lastUpdateYear: 2026
+    }
   }
 ];
 
 export const ALL_PROGRAM_IDS = FINANCING_PROGRAMS.map(p => p.id);
+
+/**
+ * 6 Realistic Synthetic Scenarios for Bank/Lender Pilot Demonstration
+ * Cleanly marked with synthetic demo metadata across specialized journeys.
+ */
+export const DEMO_SCENARIOS: DemoScenario[] = [
+  {
+    id: 'demo_first_home',
+    number: 1,
+    title: {
+      fr: 'Cas 1 : Primo-accédant — Premier Logement',
+      ar: 'الحالة 1 : مسكن أول — اقتناء شقة جديدة'
+    },
+    subtitle: {
+      fr: 'Salarié du privé (30 ans) achetant un appartement neuf (S+2) à Ariana',
+      ar: 'أجير بالقطاع الخاص (30 سنة) يقتني شقة جديدة بأريانة'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #1',
+      ar: 'حالة تجريبية نموذجية 1'
+    },
+    targetInstitutions: ['BH Bank', 'MEHAT'],
+    description: {
+      fr: 'Projet d’acquisition d’un premier logement neuf d’une valeur de 180 000 DT avec un apport personnel de 36 000 DT (20%). Revenu net mensuel ménage : 2 200 DT (Tranche 1 500 – 2 500 DT).',
+      ar: 'مشروع اقتناء مسكن أول جديد بقيمة 180 ألف دينار مع تمويل ذاتي 36 ألف د (20%). الدخل الشهري الصافي للأسرة 2200 د.'
+    },
+    profile: {
+      journey: 'home_purchase',
+      totalProjectCost: 180000,
+      userContribution: 36000,
+      financingRequested: 144000,
+      purpose: 'first_home',
+      location: 'Ariana',
+      monthlyIncomeRange: '1500_2500',
+      employmentStatus: 'salaried_private',
+      propertyType: 'new_apartment',
+      propertyCondition: 'new',
+      isFirstPropertyPurchase: true,
+      isPrincipalResidence: true,
+      desiredTermYears: 20,
+      applicantAge: 30,
+      legalStructure: 'individual',
+      isDemoCase: true,
+      demoCaseId: 'demo_first_home',
+      demoCaseTitle: {
+        fr: 'Primo-accédant — Premier Logement (180k DT)',
+        ar: 'اقتناء مسكن أول جديد (180 ألف د)'
+      },
+      projectDescription: 'Acquisition d’un appartement neuf S+2 à Ariana. Premier achat immobilier.'
+    }
+  },
+  {
+    id: 'demo_home_construction',
+    number: 2,
+    title: {
+      fr: 'Cas 2 : Construction de maison individuelle',
+      ar: 'الحالة 2 : بناء مسكن فردي على أرض خاصة'
+    },
+    subtitle: {
+      fr: 'Salarié du secteur public (38 ans) avec terrain propre à Nabeul',
+      ar: 'موظف بالقطاع العمومي (38 سنة) يملك قطعة أرض بنابل'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #2',
+      ar: 'حالة تجريبية نموذجية 2'
+    },
+    targetInstitutions: ['BH Bank', 'FOPROLOS'],
+    description: {
+      fr: 'Construction d’une maison individuelle sur terrain propre titré à Nabeul. Coût des travaux : 120 000 DT, apport : 25 000 DT (~21%), besoin : 95 000 DT. Revenu net mensuel : 1 800 DT.',
+      ar: 'بناء مسكن فردي على قطعة أرض مسجلة بنابل. كلفة الأشغال 120 ألف د، التمويل الذاتي 25 ألف د (~21%)، والحاجة 95 ألف د.'
+    },
+    profile: {
+      journey: 'home_construction',
+      totalProjectCost: 120000,
+      userContribution: 25000,
+      financingRequested: 95000,
+      purpose: 'home_construction',
+      constructionType: 'construction',
+      hasLandOwnershipTitle: true,
+      location: 'Nabeul',
+      monthlyIncomeRange: '1500_2500',
+      employmentStatus: 'salaried_public',
+      propertyType: 'individual_house',
+      isFirstPropertyPurchase: true,
+      isPrincipalResidence: true,
+      desiredTermYears: 15,
+      applicantAge: 38,
+      legalStructure: 'individual',
+      isDemoCase: true,
+      demoCaseId: 'demo_home_construction',
+      demoCaseTitle: {
+        fr: 'Construction maison individuelle (120k DT)',
+        ar: 'بناء مسكن فردي بنابل (120 ألف د)'
+      },
+      projectDescription: 'Construction d’une maison individuelle sur terrain propre titré à Nabeul.'
+    }
+  },
+  {
+    id: 'demo_manufacturing',
+    number: 3,
+    title: {
+      fr: 'Cas 3 : Création industrielle en ZDR',
+      ar: 'الحالة 3 : إحداث وحدة صناعية بمنطقة تنمية جهوية'
+    },
+    subtitle: {
+      fr: 'Ingénieur diplômé (34 ans) — Unité d’injection plastique à Zaghouan (ZDR)',
+      ar: 'مهندس جامعي (34 سنة) — وحدة حقن البلاستيك بزغوان'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #3',
+      ar: 'حالة تجريبية نموذجية 3'
+    },
+    targetInstitutions: ['BFPME', 'FOPRODI / APII', 'SOTUGAR'],
+    description: {
+      fr: 'Création d’une unité industrielle de composants plastiques techniques à Zaghouan. Budget total : 300 000 DT, apport : 60 000 DT (20%), financement demandé : 240 000 DT.',
+      ar: 'إحداث مصنع لمكونات البلاستيك الصناعية بزغوان (منطقة تنمية جهوية). الكلفة الجملية 300 ألف د، التمويل الذاتي 60 ألف د (20%).'
+    },
+    profile: {
+      journey: 'startup',
+      totalProjectCost: 300000,
+      userContribution: 60000,
+      financingRequested: 240000,
+      purpose: 'creation',
+      sector: 'industry',
+      location: 'Zaghouan',
+      isRegionalDevelopmentZone: true,
+      businessStage: 'idea_project',
+      startupProjectStage: 'idea',
+      isIncorporated: false,
+      needsEquipmentOrPremises: true,
+      legalStructure: 'sarl',
+      hasHigherEducationDegree: true,
+      applicantAge: 34,
+      isDemoCase: true,
+      demoCaseId: 'demo_manufacturing',
+      demoCaseTitle: {
+        fr: 'Création PME Industrielle Zaghouan (300k DT)',
+        ar: 'إحداث مؤسسة صناعية بزغوان (300 ألف د)'
+      },
+      projectDescription: 'Création d’une unité de pièces plastiques techniques à Zaghouan avec déclaration APII.'
+    }
+  },
+  {
+    id: 'demo_sme_expansion',
+    number: 4,
+    title: {
+      fr: 'Cas 4 : Extension & Modernisation PME',
+      ar: 'الحالة 4 : توسعة وتحديث خطوط إنتاج PME'
+    },
+    subtitle: {
+      fr: 'Entreprise manufacturière (+4 ans à Sfax) renforçant son parc de machines',
+      ar: 'شركة صناعية قائمة بصفاقس لتحديث المعدات الصناعية'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #4',
+      ar: 'حالة تجريبية نموذجية 4'
+    },
+    targetInstitutions: ['BFPME', 'SOTUGAR'],
+    description: {
+      fr: 'Extension de capacité et acquisition de machines CNC pour une PME établie à Sfax. Budget : 500 000 DT, apport : 120 000 DT (24%), financement demandé : 380 000 DT.',
+      ar: 'توسعة طاقة إنتاجية واقتناء آلات تحكم رقمي لمؤسسة بصفاقس. الكلفة 500 ألف د، التمويل الذاتي 120 ألف د، التمويل 380 ألف د.'
+    },
+    profile: {
+      journey: 'business_expansion',
+      totalProjectCost: 500000,
+      userContribution: 120000,
+      financingRequested: 380000,
+      purpose: 'expansion',
+      sector: 'industry',
+      location: 'Sfax',
+      businessStage: 'established_over_2y',
+      businessAgeYears: 4,
+      annualTurnoverRange: '500k_2m',
+      employeesCountRange: '21_50',
+      expansionPurpose: 'expansion',
+      hasExistingBankDebt: true,
+      legalStructure: 'sarl',
+      hasHigherEducationDegree: true,
+      applicantAge: 42,
+      isDemoCase: true,
+      demoCaseId: 'demo_sme_expansion',
+      demoCaseTitle: {
+        fr: 'Extension PME Industrielle Sfax (500k DT)',
+        ar: 'توسعة مصنع بصفاقس (500 ألف د)'
+      },
+      projectDescription: 'Extension d’atelier et renouvellement de machines outils CNC pour une SARL existante.'
+    }
+  },
+  {
+    id: 'demo_equipment',
+    number: 5,
+    title: {
+      fr: 'Cas 5 : Équipement professionnel & Outillage',
+      ar: 'الحالة 5 : تمويل معدات وورشة مهنية'
+    },
+    subtitle: {
+      fr: 'Jeune diplômé technicien supérieur (26 ans) — Atelier de maintenance à Sousse',
+      ar: 'تقني سام (26 سنة) يفتتح ورشة صيانة وميكانيك بسوسة'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #5',
+      ar: 'حالة تجريبية نموذجية 5'
+    },
+    targetInstitutions: ['BTS Bank', 'Enda Tamweel'],
+    description: {
+      fr: 'Lancement d’un atelier spécialisé en maintenance électromécanique à Sousse. Coût global : 70 000 DT, apport : 10 000 DT (~14%), besoin : 60 000 DT.',
+      ar: 'بعث ورشة صيانة كهروميكانيكية بسوسة. الكلفة 70 ألف د، التمويل الذاتي 10 آلاف د، التمويل المطلوب 60 ألف د.'
+    },
+    profile: {
+      journey: 'equipment',
+      totalProjectCost: 70000,
+      userContribution: 10000,
+      financingRequested: 60000,
+      purpose: 'equipment',
+      equipmentCategory: 'manufacturing',
+      equipmentCondition: 'new',
+      hasProformaInvoice: true,
+      sector: 'crafts_trades',
+      location: 'Sousse',
+      businessStage: 'creation_underway',
+      legalStructure: 'suarl',
+      hasHigherEducationDegree: true,
+      applicantAge: 26,
+      isDemoCase: true,
+      demoCaseId: 'demo_equipment',
+      demoCaseTitle: {
+        fr: 'Équipement Atelier Pro Sousse (70k DT)',
+        ar: 'تجهيز ورشة مهنية بسوسة (70 ألف د)'
+      },
+      projectDescription: 'Acquisition d’outillage de diagnostic et banc d’essai pour atelier de maintenance.'
+    }
+  },
+  {
+    id: 'demo_car_financing',
+    number: 6,
+    title: {
+      fr: 'Cas 6 : Financement Véhicule Particulier',
+      ar: 'الحالة 6 : تمويل سيارة مستعملة لفرد'
+    },
+    subtitle: {
+      fr: 'Salarié du privé (29 ans) achetant un véhicule d’occasion récent à Tunis',
+      ar: 'أجير بالقطاع الخاص (29 سنة) يقتني سيارة مستعملة بتونس'
+    },
+    badge: {
+      fr: 'Cas Démo Synthétique #6',
+      ar: 'حالة تجريبية نموذجية 6'
+    },
+    targetInstitutions: ['BH Bank', 'Banque Zitouna'],
+    description: {
+      fr: 'Achat d’un véhicule d’occasion récent d’une valeur de 65 000 DT. Apport personnel : 15 000 DT (~23%), financement demandé : 50 000 DT sur 60 mois. Revenu mensuel net : 1 900 DT.',
+      ar: 'اقتناء سيارة مستعملة بقيمة 65 ألف دينار. تمويل ذاتي 15 ألف د، تمويل مطلوب 50 ألف د على 60 شهراً. الدخل الشهري 1900 د.'
+    },
+    profile: {
+      journey: 'car',
+      totalProjectCost: 65000,
+      userContribution: 15000,
+      financingRequested: 50000,
+      purpose: 'vehicle',
+      vehicleCondition: 'used',
+      vehicleBuyerType: 'individual',
+      vehicleUsage: 'personal',
+      vehicleDesiredTermMonths: 60,
+      vehicleCategory: 'passenger',
+      location: 'Tunis',
+      monthlyIncomeRange: '1500_2500',
+      employmentStatus: 'salaried_private',
+      legalStructure: 'individual',
+      applicantAge: 29,
+      isDemoCase: true,
+      demoCaseId: 'demo_car_financing',
+      demoCaseTitle: {
+        fr: 'Achat Véhicule Particulier (65k DT)',
+        ar: 'اقتناء سيارة فردية (65 ألف د)'
+      },
+      projectDescription: 'Acquisition d’une voiture d’occasion récente pour usage personnel quotidien à Tunis.'
+    }
+  }
+];

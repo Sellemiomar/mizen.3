@@ -23,6 +23,7 @@ export const FIELD_VERIFICATION_LABELS: Record<string, { fr: string; ar: string 
   exactProfitMarginRate: { fr: "Marge Mourabaha contractuelle", ar: "هامش المرابحة التعاقدي" },
   takafulInsuranceRate: { fr: "Coût de l'assurance Takaful", ar: "كلفة التأمين التكافلي" },
   partnerBankApproval: { fr: "Accord préalable de la banque partenaire", ar: "موافقة البنك الشريك المسبقة" },
+  commissionRate: { fr: "Commission/contribution de garantie", ar: "عمولة ومساهمة الضمان" },
   exactGuaranteeShare: { fr: "Quotité de garantie finale", ar: "نسبة الضمان النهائية" },
   regionalBonusRate: { fr: "Prime ZDR selon délégation exacte", ar: "منحة التنمية الجهوية الدقيقة" },
   collegeDecision: { fr: "Décision du Collège des Startups", ar: "قرار لجنة علامة المؤسسات الناشئة" },

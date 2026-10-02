@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale, Compass, CheckSquare, FileText, BarChart3, Globe, Sparkles } from 'lucide-react';
+import { Scale, Compass, CheckSquare, FileText, BarChart3, Home, Sparkles } from 'lucide-react';
 import { Language } from '../types/financing';
 import { TRANSLATIONS } from '../i18n/translations';
 
@@ -21,122 +21,128 @@ export const Navbar: React.FC<NavbarProps> = ({
   const t = TRANSLATIONS[language];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Brand */}
-          <div
+    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs overflow-x-clip">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+        {/* Top Header Row (Logo, Desktop Nav & Actions) */}
+        <div className="flex items-center justify-between min-h-[52px] sm:h-16 py-1.5 sm:py-0 gap-1.5 sm:gap-4">
+          {/* Logo & Brand (min 44px touch target) */}
+          <button
             id="brand-logo-btn"
+            type="button"
             onClick={() => setCurrentTab('home')}
-            className="flex items-center gap-3 cursor-pointer group select-none"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group select-none min-h-[44px] min-w-[44px] text-left rtl:text-right focus:outline-hidden rounded-xl focus-visible:ring-2 focus-visible:ring-blue-600 shrink-0"
+            aria-label="Mizen Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-800 text-amber-400 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-200">
-              <Scale className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-800 text-amber-400 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform duration-200">
+              <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-tight text-slate-900 font-display">Mizen</span>
-                <span className="text-sm font-bold text-amber-700 font-['Cairo']">ميزان</span>
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base sm:text-xl font-bold tracking-tight text-slate-900 font-display leading-none">Mizen</span>
+                <span className="text-xs sm:text-sm font-bold text-amber-700 font-['Cairo'] leading-none">ميزان</span>
               </div>
-              <span className="text-[11px] text-slate-700 hidden sm:inline-block leading-tight">
+              <span className="text-[10px] sm:text-[11px] text-slate-600 hidden md:inline-block leading-tight line-clamp-1 mt-0.5">
                 {t.appTagline}
               </span>
             </div>
-          </div>
+          </button>
 
-          {/* Nav Items */}
-          <nav className="hidden md:flex items-center gap-1">
+          {/* Desktop Navigation Links (md+ screens) */}
+          <nav className="hidden md:flex items-center gap-1" aria-label="Navigation principale">
             <button
               id="nav-tab-home"
+              type="button"
               onClick={() => setCurrentTab('home')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 currentTab === 'home'
                   ? 'bg-slate-100 text-slate-900 font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
+              <Home className="w-4 h-4 text-slate-500" />
               {t.navHome}
             </button>
 
             <button
               id="nav-tab-explore"
+              type="button"
               onClick={() => setCurrentTab('explore')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 currentTab === 'explore'
                   ? 'bg-slate-100 text-slate-900 font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-slate-500" />
-                {t.navExplore}
-              </span>
+              <Compass className="w-4 h-4 text-slate-500" />
+              {t.navExplore}
             </button>
 
             <button
               id="nav-tab-compare"
+              type="button"
               onClick={() => setCurrentTab('compare')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
                 currentTab === 'compare'
                   ? 'bg-slate-100 text-slate-900 font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">
-                <BarChart3 className="w-4 h-4 text-slate-500" />
-                {t.navCompare}
-                {compareCount > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-600 text-white font-bold">
-                    {compareCount}
-                  </span>
-                )}
-              </span>
+              <BarChart3 className="w-4 h-4 text-slate-500" />
+              {t.navCompare}
+              {compareCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-600 text-white font-bold">
+                  {compareCount}
+                </span>
+              )}
             </button>
 
             <button
               id="nav-tab-dossier"
+              type="button"
               onClick={() => setCurrentTab('dossier')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 currentTab === 'dossier'
                   ? 'bg-slate-100 text-slate-900 font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">
-                <CheckSquare className="w-4 h-4 text-slate-500" />
-                {t.navDossier}
-              </span>
+              <CheckSquare className="w-4 h-4 text-slate-500" />
+              {t.navDossier}
             </button>
 
             <button
               id="nav-tab-docscan"
+              type="button"
               onClick={() => setCurrentTab('docscan')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 currentTab === 'docscan'
                   ? 'bg-slate-100 text-slate-900 font-semibold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-slate-500" />
-                {t.navDocScan}
-              </span>
+              <FileText className="w-4 h-4 text-slate-500" />
+              {t.navDocScan}
             </button>
           </nav>
 
-          {/* Right Action: Language toggle & CTA */}
-          <div className="flex items-center gap-2">
-            {/* Language Switcher */}
-            <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50">
+          {/* Right Actions: Language Switcher & Diagnostic CTA */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Language Switcher with min 44x44px touch targets */}
+            <div
+              className="flex items-center border border-slate-200 rounded-xl p-0.5 bg-slate-50/90 shadow-2xs shrink-0"
+              role="group"
+              aria-label="Langue / Language"
+            >
               <button
                 id="btn-lang-fr"
                 type="button"
                 onClick={() => setLanguage('fr')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                className={`min-h-[44px] min-w-[44px] px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center justify-center focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                   language === 'fr'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
+                aria-pressed={language === 'fr'}
               >
                 FR
               </button>
@@ -144,71 +150,117 @@ export const Navbar: React.FC<NavbarProps> = ({
                 id="btn-lang-ar"
                 type="button"
                 onClick={() => setLanguage('ar')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors font-['Cairo'] ${
+                className={`min-h-[44px] min-w-[44px] px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center justify-center font-['Cairo'] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 ${
                   language === 'ar'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80 font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
+                aria-pressed={language === 'ar'}
               >
-                العربية
+                عربي
               </button>
             </div>
 
             {/* Quick Diagnostic CTA */}
             <button
               id="header-cta-start"
+              type="button"
               onClick={() => setCurrentTab('questionnaire')}
-              className="px-3.5 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-sm hover:shadow flex items-center gap-1.5"
+              className="min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs hover:shadow flex items-center justify-center gap-1.5 shrink-0 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600 active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>{language === 'ar' ? 'تشخيص التمويل' : 'Faire le diagnostic'}</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="hidden sm:inline">
+                {language === 'ar' ? 'تشخيص التمويل' : 'Faire le diagnostic'}
+              </span>
+              <span className="sm:hidden text-xs">
+                {language === 'ar' ? 'تشخيص' : 'Diagnostic'}
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation bar */}
-        <div className="flex md:hidden overflow-x-auto py-2 border-t border-slate-100 gap-1 scrollbar-none">
+        {/* Mobile-Friendly Tab Switcher Row (min 44px touch targets, no horizontal overflow, smooth scroll) */}
+        <nav
+          className="flex md:hidden overflow-x-auto py-2 border-t border-slate-100 gap-1.5 scrollbar-none w-full touch-pan-x"
+          aria-label="Navigation mobile"
+        >
           <button
+            id="mobile-nav-tab-home"
+            type="button"
             onClick={() => setCurrentTab('home')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 ${
-              currentTab === 'home' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-50'
+            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all focus:outline-hidden active:scale-95 ${
+              currentTab === 'home'
+                ? 'bg-slate-900 text-white shadow-xs font-bold'
+                : 'text-slate-700 bg-slate-50 border border-slate-200/70 hover:bg-slate-100'
             }`}
           >
-            {t.navHome}
+            <Home className="w-3.5 h-3.5" />
+            <span>{t.navHome}</span>
           </button>
+
           <button
+            id="mobile-nav-tab-explore"
+            type="button"
             onClick={() => setCurrentTab('explore')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 ${
-              currentTab === 'explore' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-50'
+            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all focus:outline-hidden active:scale-95 ${
+              currentTab === 'explore'
+                ? 'bg-slate-900 text-white shadow-xs font-bold'
+                : 'text-slate-700 bg-slate-50 border border-slate-200/70 hover:bg-slate-100'
             }`}
           >
-            {t.navExplore}
+            <Compass className="w-3.5 h-3.5" />
+            <span>{t.navExplore}</span>
           </button>
+
           <button
+            id="mobile-nav-tab-compare"
+            type="button"
             onClick={() => setCurrentTab('compare')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 ${
-              currentTab === 'compare' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-50'
+            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all focus:outline-hidden active:scale-95 ${
+              currentTab === 'compare'
+                ? 'bg-slate-900 text-white shadow-xs font-bold'
+                : 'text-slate-700 bg-slate-50 border border-slate-200/70 hover:bg-slate-100'
             }`}
           >
-            {t.navCompare} {compareCount > 0 ? `(${compareCount})` : ''}
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>{t.navCompare}</span>
+            {compareCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                currentTab === 'compare' ? 'bg-amber-400 text-slate-900' : 'bg-blue-600 text-white'
+              }`}>
+                {compareCount}
+              </span>
+            )}
           </button>
+
           <button
+            id="mobile-nav-tab-dossier"
+            type="button"
             onClick={() => setCurrentTab('dossier')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 ${
-              currentTab === 'dossier' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-50'
+            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all focus:outline-hidden active:scale-95 ${
+              currentTab === 'dossier'
+                ? 'bg-slate-900 text-white shadow-xs font-bold'
+                : 'text-slate-700 bg-slate-50 border border-slate-200/70 hover:bg-slate-100'
             }`}
           >
-            {t.navDossier}
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>{t.navDossier}</span>
           </button>
+
           <button
+            id="mobile-nav-tab-docscan"
+            type="button"
             onClick={() => setCurrentTab('docscan')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 ${
-              currentTab === 'docscan' ? 'bg-slate-900 text-white' : 'text-slate-600 bg-slate-50'
+            className={`min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all focus:outline-hidden active:scale-95 ${
+              currentTab === 'docscan'
+                ? 'bg-slate-900 text-white shadow-xs font-bold'
+                : 'text-slate-700 bg-slate-50 border border-slate-200/70 hover:bg-slate-100'
             }`}
           >
-            {t.navDocScan}
+            <FileText className="w-3.5 h-3.5" />
+            <span>{t.navDocScan}</span>
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   );

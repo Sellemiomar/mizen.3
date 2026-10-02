@@ -66,7 +66,20 @@ export function evaluateProgramCompatibility(
   }
 
   // 3. Stage & Business Age
-  if (!applicant.businessStage) {
+  const isPersonalJourney = applicant.journey === 'home_purchase' || 
+    applicant.journey === 'home_construction' || 
+    (applicant.journey === 'car' && applicant.vehicleBuyerType !== 'business');
+
+  if (isPersonalJourney) {
+    // For individual housing or personal car buyers, business stage is not a requirement
+    if (program.purposes.includes('first_home') || program.purposes.includes('home_construction') || program.purposes.includes('vehicle')) {
+      matchedBecause.push({
+        fr: `Demande de financement personnel conforme aux conditions d'ouverture du programme.`,
+        ar: `مطلب تمويل فردي متطابق مع شروط الأهلية المفتوحة للأشخاص الطبيعيين.`
+      });
+      scoreWeight += 15;
+    }
+  } else if (!applicant.businessStage) {
     needsVerification.push({
       fr: `Stade d'avancement non précisé : ce programme cible en priorité (${program.eligibilityCriteria.stages.join(', ')}).`,
       ar: `مرحلة تقدم المشروع غير محددة : هذا البرنامج يستهدف أساساً (${program.eligibilityCriteria.stages.join(', ')}).`
@@ -86,11 +99,28 @@ export function evaluateProgramCompatibility(
   }
 
   // 4. Sector
-  if (!applicant.sector) {
-    needsVerification.push({
-      fr: `Secteur d'activité non précisé : vérifier que votre secteur figure parmi les secteurs admis auprès de cet organisme.`,
-      ar: `قطاع النشاط غير محدد : يرجى التثبت من إدراج قطاع نشاطكم ضمن القطاعات المؤهلة لدى هذه المؤسسة.`
+  const isHousingProgram = program.purposes.includes('first_home') || program.purposes.includes('home_construction');
+  const isHousingPurpose = applicant.purpose === 'first_home' || applicant.purpose === 'home_construction';
+  const isVehicleProgram = program.purposes.includes('vehicle');
+  const isVehiclePurpose = applicant.purpose === 'vehicle' || applicant.journey === 'car';
+
+  if ((isHousingProgram && isHousingPurpose) || (isVehicleProgram && isVehiclePurpose && applicant.vehicleBuyerType !== 'business')) {
+    matchedBecause.push({
+      fr: isHousingProgram 
+        ? `Projet immobilier et d'habitat conforme à la vocation de ce programme.`
+        : `Acquisition de véhicule conforme aux critères de financement automobile.`,
+      ar: isHousingProgram
+        ? `المشروع السكني متطابق مع الاختصاص الرئيسي لهذا البرنامج.`
+        : `اقتناء وسيلة نقل متطابق مع شروط تمويل السيارات.`
     });
+    scoreWeight += 15;
+  } else if (!applicant.sector) {
+    if (!isPersonalJourney) {
+      needsVerification.push({
+        fr: `Secteur d'activité non précisé : vérifier que votre secteur figure parmi les secteurs admis auprès de cet organisme.`,
+        ar: `قطاع النشاط غير محدد : يرجى التثبت من إدراج قطاع نشاطكم ضمن القطاعات المؤهلة لدى هذه المؤسسة.`
+      });
+    }
   } else if (program.eligibilityCriteria.sectors.includes(applicant.sector)) {
     matchedBecause.push({
       fr: `Secteur d'activité admissible auprès de cet organisme.`,
@@ -290,6 +320,41 @@ export function evaluateProgramCompatibility(
         ar: `آلية مناسبة لأصحاب المشاريع الذين لا يملكون رهوناً عقارية أو ضمانات عينية ثقيلة.`
       });
       scoreWeight += 15;
+    }
+  }
+
+  // 13. Income range & Housing specific rules
+  if (program.id === 'premier_logement') {
+    if (applicant.monthlyIncomeRange === '1000_1500' || applicant.monthlyIncomeRange === '1500_2500' || applicant.monthlyIncomeRange === '2500_4000') {
+      matchedBecause.push({
+        fr: `Tranche de revenu mensuel déclarée conforme aux critères de la classe moyenne (4,5 à 10 fois SMIG).`,
+        ar: `شريحة الدخل الشهري المصرح بها متوافقة مع معايير الفئة المتوسطة (4.5 إلى 10 أضعاف الأجر الأدنى).`
+      });
+      scoreWeight += 20;
+    }
+    if (applicant.isFirstPropertyPurchase === true) {
+      matchedBecause.push({
+        fr: `Condition de premier achat immobilier respectée (primo-accédant).`,
+        ar: `شرط المسكن الأول متوفر (اقتناء لأول مرة).`
+      });
+      scoreWeight += 15;
+    }
+  }
+
+  if (program.id === 'foprolos_construction') {
+    if (applicant.employmentStatus === 'salaried_private' || applicant.employmentStatus === 'salaried_public') {
+      matchedBecause.push({
+        fr: `Statut salarié affilié aux régimes de sécurité sociale (CNSS / CNRPS) compatible avec le FOPROLOS.`,
+        ar: `صفة أجير منخرط بالصناديق الاجتماعية (CNSS/CNRPS) مؤهلة للانتفاع بفوبرولوس.`
+      });
+      scoreWeight += 20;
+    }
+    if (applicant.purpose === 'home_construction') {
+      matchedBecause.push({
+        fr: `Objet de construction sur terrain propre directement éligible au barème FOPROLOS.`,
+        ar: `بناء مسكن على أرض خاصة مؤهل ومطابق لمعايير فوبرولوس.`
+      });
+      scoreWeight += 20;
     }
   }
 

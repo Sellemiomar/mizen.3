@@ -61,7 +61,20 @@ export type FinancingPurpose =
   | 'expansion'
   | 'agriculture'
   | 'innovation_rd'
-  | 'export';
+  | 'export'
+  | 'first_home'
+  | 'home_construction'
+  | 'vehicle';
+
+export type FinancingJourney = 
+  | 'home_purchase'
+  | 'home_construction'
+  | 'car'
+  | 'startup'
+  | 'business_expansion'
+  | 'equipment'
+  | 'agriculture'
+  | 'other_professional';
 
 export type BusinessStage = 
   | 'idea_project'
@@ -72,8 +85,8 @@ export type BusinessStage =
 export type BusinessSector = 
   | 'industry'
   | 'services'
-  | 'agriculture_agribusiness'
   | 'ict_tech'
+  | 'agriculture_agribusiness'
   | 'crafts_trades'
   | 'commerce'
   | 'renewable_energy'
@@ -81,16 +94,56 @@ export type BusinessSector =
   | 'other';
 
 export type LegalStructure = 
-  | 'individual'
   | 'suarl'
   | 'sarl'
   | 'sa'
+  | 'individual'
+  | 'personne_physique'
+  | 'cooperative'
   | 'agricultural_coop'
+  | 'association'
   | 'not_yet_created';
 
+export type MonthlyIncomeRange = 
+  | 'under_1000'
+  | '1000_1500'
+  | '1500_2500'
+  | '2500_4000'
+  | 'over_4000';
+
+export type EmploymentStatus =
+  | 'salaried_private'
+  | 'salaried_public'
+  | 'independent_professional'
+  | 'business_owner'
+  | 'job_seeker';
+
+export type PropertyType =
+  | 'new_apartment'
+  | 'individual_house'
+  | 'land_and_build'
+  | 'renovation';
+
+export type VehicleCondition = 'new' | 'used';
+export type VehicleBuyerType = 'individual' | 'business';
+export type VehicleUsage = 'personal' | 'professional';
+export type VehicleCategory = 'passenger' | 'utility_commercial' | 'fleet';
+
+export type ConstructionType = 'construction' | 'renovation' | 'extension';
+export type StartupProjectStage = 'idea' | 'study_prep' | 'incorporated' | 'launch_underway' | 'operating';
+export type AnnualTurnoverRange = 'under_100k' | '100k_500k' | '500k_2m' | '2m_5m' | 'over_5m';
+export type EmployeesCountRange = '1_5' | '6_20' | '21_50' | 'over_50';
+export type ExpansionPurpose = 'expansion' | 'equipment' | 'working_capital' | 'premises' | 'vehicle_fleet' | 'renovation' | 'acquisition' | 'other';
+export type EquipmentCategory = 'manufacturing' | 'agriculture' | 'construction' | 'commercial' | 'tech_it' | 'medical' | 'transport' | 'other';
+export type AgriculturalActivityType = 'crops' | 'livestock' | 'mixed' | 'irrigation_equipment' | 'agri_services';
+export type AgriculturalLandStatus = 'owned' | 'leased' | 'family_land' | 'state_domain';
+
 export interface ApplicantProfile {
+  // Specialized Journey Selector
+  journey?: FinancingJourney;
+
   // Core financial figures (Strict Mizen separation)
-  totalProjectCost?: number;       // Coût total du projet (TND)
+  totalProjectCost?: number;       // Coût total du projet / bien (TND)
   userContribution?: number;       // Apport personnel (TND)
   financingRequested?: number;     // Financement demandé (TND)
 
@@ -103,14 +156,88 @@ export interface ApplicantProfile {
   legalStructure?: LegalStructure;
 
   // Key qualifying traits
+  monthlyIncomeRange?: MonthlyIncomeRange;
+  employmentStatus?: EmploymentStatus;
+  propertyType?: PropertyType;
+  isFirstPropertyPurchase?: boolean;
   hasStartupActLabel?: boolean;
   applicantAge?: number;
   hasHigherEducationDegree?: boolean;
   collateralPreference?: 'available' | 'limited' | 'none';
   structurePreference?: 'standard' | 'islamic' | 'any';
 
+  // Specialized Fields: Car Financing Journey
+  vehicleCondition?: VehicleCondition;
+  vehicleBuyerType?: VehicleBuyerType;
+  vehicleUsage?: VehicleUsage;
+  vehicleDesiredTermMonths?: number;
+  vehicleIsReplacement?: boolean;
+  vehicleCategory?: VehicleCategory;
+
+  // Specialized Fields: Home Purchase / Construction
+  propertyCondition?: 'new' | 'existing';
+  constructionType?: ConstructionType;
+  hasLandOwnershipTitle?: boolean;
+  isPrincipalResidence?: boolean;
+  desiredTermYears?: number;
+
+  // Specialized Fields: Startup Journey
+  startupProjectStage?: StartupProjectStage;
+  isIncorporated?: boolean;
+  needsEquipmentOrPremises?: boolean;
+
+  // Specialized Fields: Expansion Journey
+  annualTurnoverRange?: AnnualTurnoverRange;
+  employeesCountRange?: EmployeesCountRange;
+  expansionPurpose?: ExpansionPurpose;
+  hasExistingBankDebt?: boolean;
+
+  // Specialized Fields: Equipment Journey
+  equipmentCategory?: EquipmentCategory;
+  equipmentCondition?: 'new' | 'used';
+  hasProformaInvoice?: boolean;
+
+  // Specialized Fields: Agricultural Journey
+  agriculturalActivityType?: AgriculturalActivityType;
+  agriculturalLandStatus?: AgriculturalLandStatus;
+  isSeasonalRequirement?: boolean;
+
+  // Specialized Fields: Other Professional
+  generalApplicantType?: 'individual' | 'business';
+
+  // Demo metadata
+  isDemoCase?: boolean;
+  demoCaseId?: string;
+  demoCaseTitle?: {
+    fr: string;
+    ar: string;
+  };
+
   // Context notes from user
   projectDescription?: string;
+}
+
+export interface DemoScenario {
+  id: string;
+  number: number;
+  title: {
+    fr: string;
+    ar: string;
+  };
+  subtitle: {
+    fr: string;
+    ar: string;
+  };
+  badge: {
+    fr: string;
+    ar: string;
+  };
+  targetInstitutions: string[];
+  description: {
+    fr: string;
+    ar: string;
+  };
+  profile: ApplicantProfile;
 }
 
 export interface VerificationRecord {

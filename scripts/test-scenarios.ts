@@ -261,6 +261,15 @@ assert(zitounaCost.canCalculateReliably === false, 'Islamic finance does not fab
 assert(zitounaCost.monthlyPayment === undefined, 'Islamic finance monthlyPayment is undefined');
 assert(zitounaCost.rateOrigin === 'unavailable', 'Islamic finance rate origin is unavailable');
 
+// 4. Guarantee mechanism (SOTUGAR)
+const sotugarProg = FINANCING_PROGRAMS.find(p => p.id === 'sotugar_guarantee')!;
+const sotugarCost = calculateFinancingCost(200000, sotugarProg);
+assert(sotugarCost.canCalculateReliably === false, 'SOTUGAR does not fabricate a universal quote');
+assert(sotugarCost.monthlyPayment === undefined, 'SOTUGAR monthlyPayment is undefined');
+assert(sotugarCost.rateOrigin === 'unavailable', 'SOTUGAR rate origin is unavailable (mechanism-specific)');
+assert(sotugarProg.estimatedRateAnnual === undefined, 'SOTUGAR estimatedRateAnnual is undefined (no fake universal 0.75%)');
+assert(sotugarProg.verification.unverifiedFields.includes('commissionRate'), 'SOTUGAR marks commissionRate as unverified');
+
 // -------------------------------------------------------------
 // Scenario J: AI Fallback Parser - Zero Fabricated Defaults Audit
 // -------------------------------------------------------------
@@ -284,9 +293,162 @@ assert(parsedFull.sector === 'industry', 'Extracted explicit textile industry');
 assert(parsedFull.purpose === 'equipment', 'Extracted explicit equipment purpose');
 assert(parsedFull.hasHigherEducationDegree === undefined, 'Degree remains undefined when unmentioned');
 
+// -------------------------------------------------------------
+// Scenario K: Multi-Amount Separation (ProjectCost vs Contribution vs Financing)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO K: Séparation multi-montants réaliste (Coût / Apport / Financement) ---');
+const parsedMulti = parseTextToProfileFallback("Je veux créer une entreprise de fabrication de vêtements à Monastir. Le projet coûte 200 000 DT. J'ai 50 000 DT d'apport et j'ai besoin de 150 000 DT de financement.");
+assert(parsedMulti.totalProjectCost === 200000, 'Parsed totalProjectCost = 200 000 DT');
+assert(parsedMulti.userContribution === 50000, 'Parsed userContribution = 50 000 DT');
+assert(parsedMulti.financingRequested === 150000, 'Parsed financingRequested = 150 000 DT');
+assert(parsedMulti.location === 'Monastir', 'Extracted Monastir location');
+assert(parsedMulti.sector === 'industry', 'Extracted industry (vêtements) sector');
+assert(parsedMulti.purpose === 'creation', 'Extracted creation purpose');
+
+// -------------------------------------------------------------
+// Scenario L: Million Notations & Flexible Currency Formats
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO L: Notations Millions (1.5 million, 1,5 MD, 1 500 000 DT) ---');
+const parsedMillionText = parseTextToProfileFallback("Mon projet coûte 1,5 million DT et j'ai besoin de 800 000 DT.");
+assert(parsedMillionText.totalProjectCost === 1500000, 'Parsed 1,5 million DT as 1 500 000 DT project cost');
+assert(parsedMillionText.financingRequested === 800000, 'Parsed 800 000 DT financing requested');
+
+// Sub-notations check
+import { parseTunisianAmount } from '../src/utils/intakeParser';
+assert(parseTunisianAmount('1.5 million') === 1500000, '1.5 million = 1500000');
+assert(parseTunisianAmount('1,5 million') === 1500000, '1,5 million = 1500000');
+assert(parseTunisianAmount('1.5 MD') === 1500000, '1.5 MD = 1500000');
+assert(parseTunisianAmount('1,5 MD') === 1500000, '1,5 MD = 1500000');
+assert(parseTunisianAmount('1500000 DT') === 1500000, '1500000 DT = 1500000');
+assert(parseTunisianAmount('1 500 000 DT') === 1500000, '1 500 000 DT = 1500000');
+assert(parseTunisianAmount('1.500.000 DT') === 1500000, '1.500.000 DT = 1500000');
+assert(parseTunisianAmount('1.5 مليون') === 1500000, '1.5 مليون = 1500000');
+
+// -------------------------------------------------------------
+// Scenario M: Specialized Car Financing Journey (Individual vs Business)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO M: Financement Véhicule Spécialisé (Particulier vs Professionnel) ---');
+const carProfileIndividual: ApplicantProfile = {
+  journey: 'car',
+  totalProjectCost: 65000,
+  userContribution: 15000,
+  financingRequested: 50000,
+  purpose: 'vehicle',
+  vehicleCondition: 'used',
+  vehicleBuyerType: 'individual',
+  vehicleUsage: 'personal',
+  vehicleDesiredTermMonths: 60,
+  location: 'Tunis',
+  monthlyIncomeRange: '1500_2500',
+  employmentStatus: 'salaried_private',
+  legalStructure: 'individual'
+};
+
+const resultsCarIndiv = runMatchingEngine(carProfileIndividual);
+assert(resultsCarIndiv.length > 0, 'Car individual matches programs');
+const bnkAuto = resultsCarIndiv.find(r => r.program.id === 'banque_credit_auto');
+assert(bnkAuto !== undefined, 'Crédit auto bancaire is evaluated');
+assert(bnkAuto?.reasons.alignmentLevel === 'strong_alignment', 'Crédit auto has strong alignment for individual salaried car buyer');
+assert(Boolean(bnkAuto?.reasons.matchedBecause.some(m => m.fr.includes('véhicule'))), 'Recognizes vehicle purpose without demanding business sector');
+
+// Business car / utility leasing
+const carProfileBusiness: ApplicantProfile = {
+  journey: 'car',
+  totalProjectCost: 120000,
+  userContribution: 25000,
+  financingRequested: 95000,
+  purpose: 'vehicle',
+  vehicleCondition: 'new',
+  vehicleBuyerType: 'business',
+  vehicleUsage: 'professional',
+  vehicleCategory: 'utility_commercial',
+  location: 'Sfax',
+  sector: 'industry',
+  businessStage: 'established_over_2y',
+  legalStructure: 'sarl'
+};
+
+const resultsCarBiz = runMatchingEngine(carProfileBusiness);
+const leasingPro = resultsCarBiz.find(r => r.program.id === 'leasing_vehicule_pro');
+assert(leasingPro !== undefined, 'Leasing véhicule pro is evaluated');
+assert(leasingPro?.reasons.alignmentLevel === 'strong_alignment', 'Leasing pro has strong alignment for business commercial vehicle');
+
+// -------------------------------------------------------------
+// Scenario N: Clean Journey Transition (Zero Irrelevant Retained Fields)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO N: Transition Propre de Parcours (Effacement des données non pertinentes) ---');
+import { cleanProfileForJourney } from '../src/engine/journeyEngine';
+
+const initialStartupProfile: ApplicantProfile = {
+  journey: 'startup',
+  purpose: 'creation',
+  totalProjectCost: 300000,
+  userContribution: 60000,
+  financingRequested: 240000,
+  sector: 'industry',
+  startupProjectStage: 'idea',
+  hasStartupActLabel: true,
+  hasHigherEducationDegree: true,
+  legalStructure: 'sarl',
+  location: 'Zaghouan'
+};
+
+const switchedToHome = cleanProfileForJourney(initialStartupProfile, 'home_purchase');
+assert(switchedToHome.journey === 'home_purchase', 'Switched journey is home_purchase');
+assert(switchedToHome.purpose === 'first_home', 'Purpose set to first_home');
+assert(switchedToHome.totalProjectCost === 300000, 'Preserved project cost');
+assert(switchedToHome.location === 'Zaghouan', 'Preserved location');
+assert(switchedToHome.hasStartupActLabel === undefined, 'Startup Act label cleansed for home purchase');
+assert(switchedToHome.startupProjectStage === undefined, 'Startup project stage cleansed for home purchase');
+assert(switchedToHome.sector === undefined, 'Business sector cleansed for home purchase');
+assert(switchedToHome.isFirstPropertyPurchase === true, 'Home purchase initialized with housing traits');
+
+const switchedToCar = cleanProfileForJourney(initialStartupProfile, 'car');
+assert(switchedToCar.journey === 'car', 'Switched journey is car');
+assert(switchedToCar.purpose === 'vehicle', 'Purpose set to vehicle');
+assert(switchedToCar.hasStartupActLabel === undefined, 'Startup Act label cleansed for car');
+assert(switchedToCar.vehicleCondition === 'used', 'Car initialized with vehicle fields');
+
+// -------------------------------------------------------------
+// Scenario O: Housing Journey Integrity (Premier Logement & FOPROLOS)
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO O: Intégrité des Parcours Logement (Premier Logement & FOPROLOS) ---');
+const homeProfile: ApplicantProfile = {
+  journey: 'home_purchase',
+  totalProjectCost: 180000,
+  userContribution: 36000,
+  financingRequested: 144000,
+  purpose: 'first_home',
+  location: 'Ariana',
+  monthlyIncomeRange: '1500_2500',
+  employmentStatus: 'salaried_private',
+  propertyType: 'new_apartment',
+  isFirstPropertyPurchase: true,
+  legalStructure: 'individual'
+};
+
+const homeResults = runMatchingEngine(homeProfile);
+const premierLogement = homeResults.find(r => r.program.id === 'premier_logement');
+assert(premierLogement !== undefined, 'Premier Logement is evaluated');
+assert(premierLogement?.reasons.alignmentLevel === 'strong_alignment', 'Premier Logement matches middle-class primo-accédant');
+assert(Boolean(premierLogement?.reasons.matchedBecause.some(m => m.fr.includes('classe moyenne'))), 'Validates income scale');
+
+// -------------------------------------------------------------
+// Scenario P: All 6 Bank/Lender Pilot Demo Cases
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO P: Audit des 6 Scénarios Démo Pilote Banques & Bailleurs ---');
+import { DEMO_SCENARIOS } from '../src/data/financingData';
+assert(DEMO_SCENARIOS.length === 6, 'Exactly 6 demo scenarios defined');
+for (const sc of DEMO_SCENARIOS) {
+  const scResults = runMatchingEngine(sc.profile);
+  assert(scResults.length > 0, `Demo scenario ${sc.id} produces matching results`);
+  const topResult = scResults[0];
+  assert(topResult.reasons.alignmentLevel === 'strong_alignment', `Demo scenario ${sc.id} has a top aligned program`);
+}
+
 console.log('\n================================================================');
 if (allPassed) {
-  console.log('🎉 ALL 10 SCENARIOS AND PRODUCTION INTEGRITY CHECKS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL 16 SCENARIOS (A-P) AND PRODUCTION INTEGRITY CHECKS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME CHECKS FAILED');
   process.exit(1);

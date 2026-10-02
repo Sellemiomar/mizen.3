@@ -9,16 +9,22 @@ import {
   Building2, 
   FileText, 
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   ShieldAlert,
-  Info
+  Info,
+  Send,
+  Sparkles,
+  Shield,
+  Layers,
+  XCircle,
+  HelpCircle as QuestionIcon
 } from 'lucide-react';
-import { MatchResult, Language, ApplicantProfile, AlignmentLevel } from '../types/financing';
+import { MatchResult, Language, ApplicantProfile, AlignmentLevel, FinancingProgram, Provider } from '../types/financing';
 import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
 import { getFieldLabel } from '../utils/verificationLabels';
+import { LenderHandoffModal } from './LenderHandoffModal';
+import { getJourneyResultHeader } from '../engine/journeyEngine';
 
 interface ResultsViewProps {
   results: MatchResult[];
@@ -43,11 +49,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
   const [filterLevel, setFilterLevel] = useState<'all' | AlignmentLevel>('all');
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
-
-  const toggleExpand = (id: string) => {
-    setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  const [handoffTarget, setHandoffTarget] = useState<{ program: FinancingProgram; provider: Provider; result: MatchResult } | null>(null);
 
   const filteredResults = results.filter(r => {
     if (filterLevel === 'all') return true;
@@ -64,7 +66,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   if (isProfileEmpty) {
     return (
       <div id="results-empty-state" className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shadow-2xs">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shadow-2xs">
           <FileText className="w-8 h-8" />
         </div>
         <h2 className="text-2xl font-bold text-slate-900 mb-2 font-display">
@@ -72,13 +74,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </h2>
         <p className="text-sm text-slate-600 max-w-md mx-auto mb-6 leading-relaxed">
           {language === 'ar'
-            ? 'لبدء تحليل الأهلية ومطابقة آليات التمويل التونسية، يرجى ملء الاستبيان أو وصف مشروعك من الصفحة الرئيسية.'
-            : 'Commencez par le questionnaire ou décrivez votre projet pour identifier les dispositifs de financement compatibles.'}
+            ? 'لبدء تحليل الأهلية ومطابقة آليات التمويل التونسية، يرجى ملء الاستبيان أو اختيار حالة نموذجية من الصفحة الرئيسية.'
+            : 'Commencez par le questionnaire ou choisissez un cas pilote de démonstration pour identifier les dispositifs compatibles.'}
         </p>
         <button
           id="empty-results-start-btn"
+          type="button"
           onClick={onRestartDiagnostic}
-          className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm transition-all shadow-xs"
+          className="min-h-[44px] px-6 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm transition-all shadow-xs"
         >
           {language === 'ar' ? 'بدء تشخيص المشروع' : 'Remplir le questionnaire'}
         </button>
@@ -86,146 +89,192 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     );
   }
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Results Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 text-xs font-bold uppercase tracking-wider">
-              {results.length} {language === 'ar' ? 'آليات تمويل مطابقة' : 'Dispositifs analysés'}
-            </span>
-            <span className="text-xs text-slate-500">
-              {(applicantProfile.financingRequested ?? 0) > 0 
-                ? `${applicantProfile.financingRequested?.toLocaleString('fr-FR')} DT` 
-                : (language === 'ar' ? 'مبلغ غير محدد' : 'Montant non spécifié')}
-              {applicantProfile.location ? ` • ${applicantProfile.location}` : ''}
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-display">
-            {t.resultsTitle}
-          </h1>
-          <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-            {t.resultsSub}
-          </p>
-        </div>
+  const journeyHeader = getJourneyResultHeader(applicantProfile.journey, language);
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+  return (
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Active Demo Case Notice */}
+      {applicantProfile.isDemoCase && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-300/80 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+            <div>
+              <strong className="font-bold block sm:inline mr-1.5">
+                {t.demoBadge} : {applicantProfile.demoCaseTitle?.[language] || 'Cas de démonstration'}
+              </strong>
+              <span className="text-amber-900/90 leading-relaxed">
+                {t.activeDemoNotice}
+              </span>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={onRestartDiagnostic}
-            className="px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
+            className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-900 font-semibold hover:bg-amber-100 transition-colors shrink-0 text-xs"
           >
-            {language === 'ar' ? 'تعديل المعطيات' : 'Modifier mes critères'}
+            {t.clearDemoBtn}
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Trust & Transparency Banner */}
-      <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-start gap-2.5">
-          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <span className="text-slate-200 leading-relaxed">
-            <strong className="text-amber-300 font-bold">
-              {language === 'ar' ? 'مبدأ الشفافية والنزاهة :' : "Principe d'intégrité Mizen :"}
-            </strong>{' '}
-            {language === 'ar'
-              ? 'التطابق مبني على المعايير والشروط العامة المتاحة ولا يشكل بأي حال من الأحوال موافقة بنكية أو ضماناً لمنح التمويل.'
-              : 'Le matching est basé sur les critères disponibles et ne constitue en aucun cas un accord ou une garantie de financement.'}
-          </span>
+      {/* 1. EXECUTIVE SUMMARY SECTION */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white shadow-xl border border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-slate-800">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold uppercase tracking-wider">
+                {t.executiveSummaryTitle}
+              </span>
+              <span className="text-xs text-slate-400">
+                {results.length} {language === 'ar' ? 'آليات محللة' : 'mécanismes analysés'}
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-display text-white">
+              {journeyHeader.title}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-3xl leading-relaxed">
+              {journeyHeader.subtitle}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onRestartDiagnostic}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition-colors"
+            >
+              {language === 'ar' ? 'تعديل المعطيات' : 'Modifier mes critères'}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <TrustBadge type="verified_fact" language={language} subtle />
-          <TrustBadge type="calculated" language={language} subtle />
+
+        {/* Profile Snapshot Grid */}
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+            <span className="text-[11px] text-slate-400 block font-medium">Coût global / bien</span>
+            <strong className="text-sm sm:text-base font-bold text-white mt-0.5 block">
+              {applicantProfile.totalProjectCost ? `${applicantProfile.totalProjectCost.toLocaleString('fr-FR')} DT` : 'Non précisé'}
+            </strong>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+            <span className="text-[11px] text-slate-400 block font-medium">Apport personnel</span>
+            <strong className="text-sm sm:text-base font-bold text-emerald-400 mt-0.5 block">
+              {applicantProfile.userContribution ? `${applicantProfile.userContribution.toLocaleString('fr-FR')} DT` : 'Non précisé'}
+            </strong>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+            <span className="text-[11px] text-slate-400 block font-medium">Financement sollicité</span>
+            <strong className="text-sm sm:text-base font-bold text-blue-400 mt-0.5 block">
+              {applicantProfile.financingRequested ? `${applicantProfile.financingRequested.toLocaleString('fr-FR')} DT` : 'Non précisé'}
+            </strong>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+            <span className="text-[11px] text-slate-400 block font-medium">Localisation</span>
+            <strong className="text-sm sm:text-base font-bold text-white mt-0.5 block truncate">
+              {applicantProfile.location || 'Tunisie'} {applicantProfile.isRegionalDevelopmentZone ? '★ (ZDR)' : ''}
+            </strong>
+          </div>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none touch-pan-x">
         <button
+          type="button"
           onClick={() => setFilterLevel('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
             filterLevel === 'all'
-              ? 'bg-blue-700 text-white shadow-2xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
           {language === 'ar' ? 'جميع العروض' : 'Toutes les options'} ({results.length})
         </button>
 
         <button
+          type="button"
           onClick={() => setFilterLevel('strong_alignment')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
             filterLevel === 'strong_alignment'
-              ? 'bg-emerald-700 text-white shadow-2xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'bg-emerald-700 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
           {language === 'ar' ? 'توافق قوي' : 'Forte adéquation'} ({results.filter(r => r.reasons.alignmentLevel === 'strong_alignment').length})
         </button>
 
         <button
+          type="button"
           onClick={() => setFilterLevel('partial_alignment')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
             filterLevel === 'partial_alignment'
-              ? 'bg-amber-700 text-white shadow-2xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'bg-amber-700 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
           {language === 'ar' ? 'توافق جزئي' : 'Adéquation partielle'} ({results.filter(r => r.reasons.alignmentLevel === 'partial_alignment').length})
         </button>
 
         <button
+          type="button"
           onClick={() => setFilterLevel('potential_blockers')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
             filterLevel === 'potential_blockers'
-              ? 'bg-rose-700 text-white shadow-2xs'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'bg-rose-700 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {language === 'ar' ? 'شروط تتطلب المراجعة' : 'Points bloquants'} ({results.filter(r => r.reasons.alignmentLevel === 'potential_blockers').length})
+          {language === 'ar' ? 'شروط تتطلب المراجعة' : 'Points d’attention'} ({results.filter(r => r.reasons.alignmentLevel === 'potential_blockers').length})
         </button>
       </div>
 
-      {/* Program Cards List */}
-      <div className="space-y-4">
+      {/* 2. POTENTIAL FINANCING MECHANISMS LIST */}
+      <div className="space-y-5">
         {filteredResults.map((item) => {
           const { program, provider, reasons, costEstimate } = item;
           const isCompared = comparedProgramIds.includes(program.id);
-          const isExpanded = Boolean(expandedCards[program.id]);
 
           return (
             <div
               key={program.id}
               id={`result-card-${program.id}`}
-              className={`rounded-2xl border transition-all duration-200 bg-white overflow-hidden ${
+              className={`rounded-3xl border transition-all duration-200 bg-white overflow-hidden ${
                 reasons.alignmentLevel === 'strong_alignment'
-                  ? 'border-slate-300/90 shadow-xs hover:border-blue-400'
+                  ? 'border-slate-300 shadow-xs hover:border-blue-400'
                   : 'border-slate-200 shadow-2xs'
               }`}
             >
-              {/* Card Header */}
-              <div className="p-5 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+              <div className="p-5 sm:p-7">
+                {/* Header Row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-bold">
+                      <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-bold">
                         {provider.acronym}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium">
+                        {program.category.replace('_', ' ').toUpperCase()}
                       </span>
                       <VerificationBadge verification={program.verification} language={language} />
                     </div>
 
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 hover:text-blue-700 transition-colors cursor-pointer"
-                        onClick={() => onSelectProgram(program.id)}>
+                    <h3
+                      onClick={() => onSelectProgram(program.id)}
+                      className="text-lg sm:text-xl font-bold text-slate-900 hover:text-blue-700 transition-colors cursor-pointer font-display"
+                    >
                       {program.name[language]}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-600 mt-1">
                       {program.tagline[language]}
                     </p>
                   </div>
 
                   {/* Alignment Level Badge */}
-                  <div className="shrink-0">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                  <div className="shrink-0 self-start sm:self-auto">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
                       reasons.alignmentLevel === 'strong_alignment'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : reasons.alignmentLevel === 'partial_alignment'
@@ -248,250 +297,143 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                   </div>
                 </div>
 
-                {/* Key Metrics Bar with Field-level verification claims */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-xs mb-4">
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-slate-600 font-medium">Plafond d'intervention</span>
-                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                        {program.verification.verifiedFields.includes('maxAmount') ? '✓ Vérifié' : 'Indicatif'}
-                      </span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {program.minAmount.toLocaleString('fr-FR')} - {program.maxAmount.toLocaleString('fr-FR')} DT
-                    </span>
+                {/* Key Metrics Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs mb-4">
+                  <div>
+                    <span className="text-slate-500 font-medium block text-[11px]">Plafond d’intervention</span>
+                    <strong className="text-slate-900 font-bold sm:text-sm">
+                      {program.minAmount.toLocaleString('fr-FR')} – {program.maxAmount.toLocaleString('fr-FR')} DT
+                    </strong>
                   </div>
 
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-slate-600 font-medium">Taux / Formule</span>
-                      <span className="text-[10px] font-semibold px-1 py-0.2 rounded border ${
-                        program.rateType === 'subsidized' 
-                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
-                          : 'text-slate-600 bg-slate-100 border-slate-200'
-                      }">
-                        {program.rateType === 'subsidized' ? '✓ Fixé par décret' : (program.rateType === 'variable_tmm' ? 'BCT TMM' : 'À négocier')}
-                      </span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">
+                  <div>
+                    <span className="text-slate-500 font-medium block text-[11px]">Taux / Formule</span>
+                    <strong className="text-slate-900 font-bold sm:text-sm truncate block">
                       {program.rateDescription[language]}
-                    </span>
+                    </strong>
                   </div>
 
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-slate-600 font-medium">Durée & Franchise</span>
-                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                        {program.verification.verifiedFields.includes('durationMonths') ? '✓ Barème' : 'Estimé'}
-                      </span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {Math.round(program.durationMonthsMax / 12)} ans ({program.gracePeriodMonthsMin}m différé)
-                    </span>
+                  <div>
+                    <span className="text-slate-500 font-medium block text-[11px]">Durée & Différé</span>
+                    <strong className="text-slate-900 font-bold sm:text-sm">
+                      Jusqu’à {Math.round(program.durationMonthsMax / 12)} ans ({program.gracePeriodMonthsMin}m différé)
+                    </strong>
                   </div>
 
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-slate-600 font-medium">Apport requis</span>
-                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                        {program.verification.verifiedFields.includes('minContributionPercent') ? '✓ Minimum légal' : 'Exigé'}
-                      </span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">
+                  <div>
+                    <span className="text-slate-500 font-medium block text-[11px]">Apport minimal requis</span>
+                    <strong className="text-slate-900 font-bold sm:text-sm">
                       Min. {program.minContributionPercent}%
-                    </span>
+                    </strong>
                   </div>
                 </div>
 
-                {/* Visible Field-Level Verification Distinction */}
-                <div className="mb-4 p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 text-xs space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-200 text-[11px]">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                      <ShieldAlert className="w-3.5 h-3.5 text-blue-700" />
-                      <span>{language === 'ar' ? 'مستوى توثيق الشروط والبيانات :' : 'Traçabilité des données du produit :'}</span>
-                    </div>
-                    <div className="text-slate-500">
-                      {language === 'ar' ? 'المصدر :' : 'Source :'} <a href={program.verification.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline font-semibold">{program.verification.sourceTitle}</a> ({program.verification.dateChecked})
-                    </div>
-                  </div>
+                {/* 3. "WHY THIS RESULT?" TRANSPARENT CRITERIA BREAKDOWN */}
+                <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3 text-xs mb-4">
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-700" />
+                    <span>{t.whyThisResultTitle}</span>
+                  </h4>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    {program.verification.verifiedFields && program.verification.verifiedFields.length > 0 && (
-                      <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-200/80 text-emerald-950">
-                        <strong className="block text-emerald-900 font-bold mb-1 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span>{language === 'ar' ? 'معايير مؤكدة رسمياً :' : 'Vérifié par la source officielle :'}</span>
-                        </strong>
-                        <div className="flex flex-wrap gap-1">
-                          {program.verification.verifiedFields.map(f => (
-                            <span key={f} className="px-1.5 py-0.5 rounded bg-white text-emerald-900 border border-emerald-200 text-[10px] font-medium">
-                              ✓ {getFieldLabel(f, language)}
-                            </span>
-                          ))}
+                  <div className="space-y-2.5">
+                    {/* Satisfied Criteria */}
+                    {reasons.matchedBecause.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-800 text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>{t.matchedBecauseTitle}</span>
                         </div>
+                        <ul className="space-y-1 pl-5 rtl:pr-5 text-slate-700">
+                          {reasons.matchedBecause.map((r, idx) => (
+                            <li key={idx} className="list-disc leading-relaxed">
+                              {r[language]}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
-                    {program.verification.unverifiedFields && program.verification.unverifiedFields.length > 0 && (
-                      <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200/80 text-amber-950">
-                        <strong className="block text-amber-900 font-bold mb-1 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                          <span>{language === 'ar' ? 'شروط تتطلب التأكيد من الفرع :' : 'À vérifier auprès du conseiller / comité :'}</span>
-                        </strong>
-                        <div className="flex flex-wrap gap-1">
-                          {program.verification.unverifiedFields.map(f => (
-                            <span key={f} className="px-1.5 py-0.5 rounded bg-white text-amber-900 border border-amber-200 text-[10px] font-medium">
-                              ⚠ {getFieldLabel(f, language)}
-                            </span>
-                          ))}
+                    {/* Potential Issues / Blocker Points */}
+                    {reasons.potentialIssues.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px]">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{t.potentialIssuesTitle}</span>
                         </div>
+                        <ul className="space-y-1 pl-5 rtl:pr-5 text-amber-950">
+                          {reasons.potentialIssues.map((r, idx) => (
+                            <li key={idx} className="list-disc leading-relaxed">
+                              {r[language]}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Needs Verification */}
+                    {reasons.needsVerification.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center gap-1.5 font-bold text-blue-900 text-[11px]">
+                          <HelpCircle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>{t.needsVerificationTitle}</span>
+                        </div>
+                        <ul className="space-y-1 pl-5 rtl:pr-5 text-slate-600">
+                          {reasons.needsVerification.map((r, idx) => (
+                            <li key={idx} className="list-disc leading-relaxed">
+                              {r[language]}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Explanations Grid: MATCHED BECAUSE / POTENTIAL ISSUES / NEEDS VERIFICATION */}
-                <div className="space-y-3 pt-2">
-                  {/* Matched Because */}
-                  {reasons.matchedBecause.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 mb-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>{t.matchedBecauseTitle}</span>
-                      </div>
-                      <ul className="space-y-1 pl-5 rtl:pr-5 text-xs text-slate-700">
-                        {reasons.matchedBecause.map((r, i) => (
-                          <li key={i} className="list-disc">
-                            {r[language]}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Potential Issues */}
-                  {reasons.potentialIssues.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 mb-1.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>{t.potentialIssuesTitle}</span>
-                      </div>
-                      <ul className="space-y-1 pl-5 rtl:pr-5 text-xs text-amber-900">
-                        {reasons.potentialIssues.map((r, i) => (
-                          <li key={i} className="list-disc">
-                            {r[language]}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Needs Verification */}
-                  {reasons.needsVerification.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 mb-1.5">
-                        <HelpCircle className="w-4 h-4 text-blue-600" />
-                        <span>{t.needsVerificationTitle}</span>
-                      </div>
-                      <ul className="space-y-1 pl-5 rtl:pr-5 text-xs text-slate-600">
-                        {reasons.needsVerification.map((r, i) => (
-                          <li key={i} className="list-disc">
-                            {r[language]}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Financial Calculation Simulation Box */}
+                {/* 4. FINANCIAL SCENARIO / ILLUSTRATION (WHERE VERIFIED) */}
                 {costEstimate && (
-                  <div className="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50/80 text-xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/70">
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 text-xs space-y-2 mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                       <div className="flex items-center gap-1.5 font-bold text-slate-900">
                         <Calculator className="w-4 h-4 text-blue-700" />
                         <span>{t.estMonthlyPayment} :</span>
                         {costEstimate.canCalculateReliably && costEstimate.monthlyPayment ? (
-                          <span className="text-blue-900 text-sm font-extrabold">
+                          <span className="text-blue-900 text-sm font-extrabold ml-1">
                             ~{costEstimate.monthlyPayment.toLocaleString('fr-FR')} DT/mois
-                          </span>
-                        ) : costEstimate.monthlyPayment ? (
-                          <span className="text-slate-800 text-sm font-bold">
-                            ~{costEstimate.monthlyPayment.toLocaleString('fr-FR')} DT/mois
-                            <span className="text-amber-800 text-[11px] font-normal ml-1">
-                              ({language === 'ar' ? 'تقديري مشروط' : 'indicatif'})
-                            </span>
                           </span>
                         ) : (
-                          <span className="text-amber-800 font-semibold">
-                            {t.cannotCalculateReliably}
+                          <span className="text-amber-800 font-semibold ml-1 text-[11px]">
+                            {costEstimate.unreliableReason?.[language] || t.cannotCalculateReliably}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
                         {costEstimate.rateOriginLabel && (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700">
                             {costEstimate.rateOriginLabel[language]}
                           </span>
                         )}
-                        <TrustBadge type="calculated" language={language} subtle />
                       </div>
                     </div>
-
-                    {costEstimate.rateBenchmarkSource && (
-                      <div className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-700">
-                          {language === 'ar' ? 'المرجع المعتمد :' : 'Référence de calcul :'}
-                        </span>
-                        <span>{costEstimate.rateBenchmarkSource}</span>
-                        {costEstimate.rateBenchmarkDate && (
-                          <span className="text-slate-400">({costEstimate.rateBenchmarkDate})</span>
-                        )}
-                      </div>
-                    )}
 
                     <p className="text-slate-600 leading-relaxed text-[11px]">
                       {costEstimate.calculationExplanation[language]}
                     </p>
 
-                    {costEstimate.unreliableReason && (
-                      <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                        <span>{costEstimate.unreliableReason[language]}</span>
-                      </div>
-                    )}
-
-                    {costEstimate.totalCostOfFinancing !== undefined && costEstimate.totalCostOfFinancing > 0 && (
-                      <div className="mt-2 pt-2 border-t border-slate-200/60 flex flex-wrap items-center justify-between text-[11px] text-slate-600">
-                        <span>
-                          {language === 'ar' ? 'الكلفة الإجمالية التقديرية للتمويل :' : 'Coût global estimé du financement :'}
-                        </span>
-                        <span className="font-bold text-slate-800">
-                          ~{costEstimate.totalCostOfFinancing.toLocaleString('fr-FR')} DT
-                        </span>
-                      </div>
-                    )}
+                    <div className="p-2.5 rounded-xl bg-slate-50 text-[10px] text-slate-500 leading-relaxed">
+                      {t.illustrativeEstimateNotice}
+                    </div>
                   </div>
                 )}
 
-                {/* Mandatory Regulatory & Objectivity Disclaimer */}
-                <div className="mt-4 py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
-                  <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                  <span className="leading-relaxed">
-                    {language === 'ar'
-                      ? 'يقوم ميزان بتقييم الانسجام الفني مع المعايير العامة المنشورة. لا يمثل هذا التقييم موافقة مبدئية ولا ضماناً للتمويل ولا وعداً بالقبول من لجنة التمويل.'
-                      : "Mizen évalue la cohérence technique avec les critères publics déclarés. Cette évaluation ne constitue ni un accord de principe, ni une garantie de financement, ni une promesse d'acceptation par le comité du financeur."}
-                  </span>
-                </div>
-
-                {/* Action Toolbar */}
-                <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2">
+                {/* 5. ACTION TOOLBAR */}
+                <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       id={`btn-detail-${program.id}`}
+                      type="button"
                       onClick={() => onSelectProgram(program.id)}
-                      className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+                      className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
                     >
                       <span>{t.viewDetailBtn}</span>
                       <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
@@ -499,8 +441,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
                     <button
                       id={`btn-compare-${program.id}`}
+                      type="button"
                       onClick={() => onToggleCompare(program.id)}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                      className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
                         isCompared
                           ? 'bg-blue-50 text-blue-800 border-blue-300'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -509,28 +452,27 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                       <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
                       <span>{isCompared ? t.removeFromCompare : t.addToCompare}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onOpenDossier(program.id)}
+                      className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-slate-600" />
+                      <span>{t.prepareDossierBtn}</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {/* Handoff CTA */}
                     <button
-                      onClick={() => onOpenDossier(program.id)}
-                      className="px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-semibold border border-emerald-200 transition-colors flex items-center gap-1"
+                      type="button"
+                      onClick={() => setHandoffTarget({ program, provider, result: item })}
+                      className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5"
                     >
-                      <FileText className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t.prepareDossierBtn}</span>
+                      <Send className="w-3.5 h-3.5 rtl:rotate-180" />
+                      <span>{t.lenderHandoffBtn}</span>
                     </button>
-
-                    {program.verification.sourceUrl && (
-                      <a
-                        href={program.verification.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors"
-                        title={program.verification.sourceTitle}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
                   </div>
                 </div>
               </div>
@@ -538,6 +480,34 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           );
         })}
       </div>
+
+      {/* 5. "WHAT MIZEN DOES NOT DETERMINE" INSTITUTIONAL DISCLAIMER */}
+      <div className="p-6 rounded-3xl bg-slate-100 border border-slate-200 text-slate-800 text-xs space-y-2">
+        <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+          <Shield className="w-4 h-4 text-slate-700" />
+          <span>{t.whatMizenDoesNotDetermineTitle}</span>
+        </div>
+        <p className="leading-relaxed text-slate-600">
+          {t.whatMizenDoesNotDetermineText}
+        </p>
+      </div>
+
+      {/* Persistent Disclaimer */}
+      <div className="p-4 rounded-2xl bg-white border border-slate-200 text-[11px] text-slate-500 text-center leading-relaxed">
+        {t.persistentDisclaimer}
+      </div>
+
+      {/* Simulated Lender Handoff Modal */}
+      {handoffTarget && (
+        <LenderHandoffModal
+          program={handoffTarget.program}
+          provider={handoffTarget.provider}
+          result={handoffTarget.result}
+          applicantProfile={applicantProfile}
+          language={language}
+          onClose={() => setHandoffTarget(null)}
+        />
+      )}
     </div>
   );
 };

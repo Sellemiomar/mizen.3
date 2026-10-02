@@ -14,23 +14,32 @@ import {
   Loader2,
   Edit2,
   RotateCcw,
-  Info
+  Info,
+  Home,
+  Hammer
 } from 'lucide-react';
 import { 
   Language, 
   FinancingPurpose, 
+  FinancingJourney,
   ApplicantProfile,
   BusinessSector,
-  BusinessStage 
+  BusinessStage,
+  DemoScenario
 } from '../types/financing';
 import { TUNISIAN_GOVERNORATES } from '../data/financingData';
 import { TRANSLATIONS } from '../i18n/translations';
 import { TrustBadge } from './TrustBadge';
+import { parseTextToProfileFallback } from '../utils/intakeParser';
+import { DemoScenarioDeck } from './DemoScenarioDeck';
+import { JOURNEY_METAS } from '../engine/journeyEngine';
 
 interface HeroSectionProps {
   language: Language;
   onSelectPurpose: (purpose: FinancingPurpose) => void;
+  onSelectJourney?: (journey: FinancingJourney) => void;
   onAiParsed: (extractedProfile: Partial<ApplicantProfile>) => void;
+  onSelectDemoScenario?: (scenario: DemoScenario) => void;
   onExploreAll: () => void;
   onStartFullDiagnostic: () => void;
 }
@@ -52,7 +61,9 @@ interface ExtractedDraft {
 export const HeroSection: React.FC<HeroSectionProps> = ({
   language,
   onSelectPurpose,
+  onSelectJourney,
   onAiParsed,
+  onSelectDemoScenario,
   onExploreAll,
   onStartFullDiagnostic
 }) => {
@@ -91,7 +102,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     working_capital: { fr: 'Fonds de roulement', ar: 'رأس مال عامل وسيولة' },
     agriculture: { fr: 'Projet agricole', ar: 'مشروع فلاحي' },
     innovation_rd: { fr: 'Tech & R&D', ar: 'تجديد وتكنولوجيا' },
-    export: { fr: 'Développement export', ar: 'تصدير وأسواق خارجية' }
+    export: { fr: 'Développement export', ar: 'تصدير وأسواق خارجية' },
+    first_home: { fr: 'Premier Logement (Achat)', ar: 'المسكن الأول (شراء)' },
+    home_construction: { fr: 'Construction de logement', ar: 'بناء مسكن فردي' },
+    vehicle: { fr: 'Financement Véhicule', ar: 'تمويل سيارة / وسيلة نقل' }
   };
 
   const purposeOptions: { id: FinancingPurpose; title: { fr: string; ar: string }; icon: React.ReactNode; desc: { fr: string; ar: string } }[] = [
@@ -169,53 +183,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       }
     } catch (err: any) {
       console.warn('AI intake fallback or network error:', err);
-      // Fallback: heuristic extraction without fabricating unmentioned data
-      const lower = naturalQuery.toLowerCase();
-      let detectedPurpose: FinancingPurpose | undefined = undefined;
-      if (lower.includes('équipement') || lower.includes('machine') || lower.includes('آلات')) {
-        detectedPurpose = 'equipment';
-      } else if (lower.includes('roulement') || lower.includes('trésorerie') || lower.includes('سيولة')) {
-        detectedPurpose = 'working_capital';
-      } else if (lower.includes('agricole') || lower.includes('فلاح')) {
-        detectedPurpose = 'agriculture';
-      } else if (lower.includes('startup') || lower.includes('tech') || lower.includes('تجديد')) {
-        detectedPurpose = 'innovation_rd';
-      } else if (lower.includes('création') || lower.includes('creation') || lower.includes('تأسيس') || lower.includes('بعث')) {
-        detectedPurpose = 'creation';
-      }
-
-      // Extract real amount if explicitly present
-      const digitsOnly = naturalQuery.replace(/\s+/g, ' ');
-      const match = digitsOnly.match(/(\d+(?:[.,]\d+)?)\s*(?:dt|tnd|dinars?|دينار|k)?/i);
-      let detectedAmount: number | undefined = undefined;
-      if (match) {
-        const raw = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(raw) && raw > 0) {
-          detectedAmount = match[0].toLowerCase().includes('k') && raw < 1000 ? raw * 1000 : raw;
-          if (detectedAmount > 0 && detectedAmount < 1000 && !match[0].toLowerCase().includes('dt')) {
-            detectedAmount *= 1000;
-          }
-        }
-      }
-
+      // Fallback: robust heuristic extraction without fabricating unmentioned data
+      const parsed = parseTextToProfileFallback(naturalQuery, language);
       const missing: string[] = [];
-      if (!detectedAmount) missing.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'Montant du financement souhaité');
-      if (!detectedPurpose) missing.push(language === 'ar' ? 'موضوع التمويل' : 'Objet du financement');
+      if (!parsed.financingRequested) missing.push(language === 'ar' ? 'مبلغ التمويل المطلوب' : 'Montant du financement souhaité');
+      if (!parsed.totalProjectCost) missing.push(language === 'ar' ? 'الكلفة الجملية للمشروع' : 'Coût global du projet');
+      if (!parsed.userContribution) missing.push(language === 'ar' ? 'المساهمة الذاتية' : 'Apport personnel');
+      if (!parsed.purpose) missing.push(language === 'ar' ? 'موضوع التمويل' : 'Objet du financement');
+      if (!parsed.location) missing.push(language === 'ar' ? 'الولاية' : 'Gouvernorat');
 
       setExtractedDraft({
-        purpose: detectedPurpose,
-        financingRequested: detectedAmount,
-        totalProjectCost: undefined, // financingRequested ≠ totalProjectCost
-        userContribution: undefined,
-        location: undefined,
-        sector: undefined,
-        businessStage: undefined,
+        purpose: parsed.purpose,
+        financingRequested: parsed.financingRequested,
+        totalProjectCost: parsed.totalProjectCost,
+        userContribution: parsed.userContribution,
+        location: parsed.location,
+        sector: parsed.sector,
+        businessStage: parsed.businessStage,
         missingCriticalFields: missing,
         unassumedFields: [
-          language === 'ar' ? 'الكلفة الإجمالية للمشروع غير محددة' : 'Coût global du projet non spécifié',
-          language === 'ar' ? 'الولاية / الجهة غير محددة' : 'Région / Gouvernorat non spécifié',
-          language === 'ar' ? 'القطاع غير محدد' : 'Secteur d’activité non spécifié',
-          language === 'ar' ? 'المساهمة الذاتية غير محددة' : 'Apport personnel non spécifié'
+          language === 'ar' ? 'لم يتم اختلاق أي فائدة أو نسبة' : 'Aucun taux ou marge inventé',
+          language === 'ar' ? 'الشكل القانوني غير مفترض' : 'Forme juridique non assumée'
         ]
       });
     } finally {
@@ -583,6 +571,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         </div>
 
+        {/* Demo Scenarios Deck for Bank Evaluators */}
+        {onSelectDemoScenario && (
+          <div className="mb-14">
+            <DemoScenarioDeck
+              language={language}
+              onSelectScenario={onSelectDemoScenario}
+            />
+          </div>
+        )}
+
         {/* "What are you financing?" Direct grid */}
         <div>
           <div className="text-center mb-6">
@@ -596,12 +594,75 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {purposeOptions.map((item) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {[
+              {
+                journey: 'home_purchase' as FinancingJourney,
+                purpose: 'first_home' as FinancingPurpose,
+                title: { fr: 'Acheter un logement', ar: 'شراء مسكن' },
+                icon: <Home className="w-5 h-5 text-blue-600" />,
+                desc: { fr: 'Premier Logement (MEHAT/BH), crédit bancaire acquéreur', ar: 'المسكن الأول، قروض عقارية مدعمة وبنك الإسكان' }
+              },
+              {
+                journey: 'home_construction' as FinancingJourney,
+                purpose: 'home_construction' as FinancingPurpose,
+                title: { fr: 'Construire / Rénover', ar: 'بناء أو تهيئة مسكن' },
+                icon: <Hammer className="w-5 h-5 text-emerald-600" />,
+                desc: { fr: 'FOPROLOS, travaux sur terrain propre, surélévation', ar: 'فوبرولوس، بناء على أرض خاصة، أشغال وتوسعة' }
+              },
+              {
+                journey: 'car' as FinancingJourney,
+                purpose: 'vehicle' as FinancingPurpose,
+                title: { fr: 'Acheter un véhicule', ar: 'شراء سيارة / وسيلة نقل' },
+                icon: <Wrench className="w-5 h-5 text-amber-600" />,
+                desc: { fr: 'Véhicule neuf ou occasion, leasing utilitaire, crédit auto', ar: 'سيارة جديدة أو مستعملة، ليزينغ نفعي، قرض سيارة' }
+              },
+              {
+                journey: 'startup' as FinancingJourney,
+                purpose: 'creation' as FinancingPurpose,
+                title: { fr: 'Créer une entreprise', ar: 'بعث وتأسيس مشروع' },
+                icon: <Building2 className="w-5 h-5 text-indigo-600" />,
+                desc: { fr: 'BFPME, Startup Act, dotations APII, diplômés', ar: 'BFPME، ستارت آب آكت، منح APII، باعثون جدد' }
+              },
+              {
+                journey: 'business_expansion' as FinancingJourney,
+                purpose: 'expansion' as FinancingPurpose,
+                title: { fr: 'Développer une PME', ar: 'توسعة وتحديث مؤسسة' },
+                icon: <TrendingUp className="w-5 h-5 text-teal-600" />,
+                desc: { fr: 'Augmentation de capacité, fonds de roulement, SOTUGAR', ar: 'زيادة طاقة الإنتاج، سيولة الاستغلال، كفالة سوتوغار' }
+              },
+              {
+                journey: 'equipment' as FinancingJourney,
+                purpose: 'equipment' as FinancingPurpose,
+                title: { fr: 'Équipements & Machines', ar: 'اقتناء معدات وآلات' },
+                icon: <Wrench className="w-5 h-5 text-purple-600" />,
+                desc: { fr: 'Machines de production, outillage, matériel technique', ar: 'آلات إنتاج، أدوات صناعية، معدات تقنية' }
+              },
+              {
+                journey: 'agriculture' as FinancingJourney,
+                purpose: 'agriculture' as FinancingPurpose,
+                title: { fr: 'Projet agricole', ar: 'مشروع فلاحي' },
+                icon: <Tractor className="w-5 h-5 text-lime-600" />,
+                desc: { fr: 'Arboriculture, élevage, serres, irrigation moderne', ar: 'غراسات، تربية ماشية، ري قطرة قطرة، بيوت مكيفة' }
+              },
+              {
+                journey: 'other_professional' as FinancingJourney,
+                purpose: 'working_capital' as FinancingPurpose,
+                title: { fr: 'Autre financement pro', ar: 'تمويل مهني آخر' },
+                icon: <Coins className="w-5 h-5 text-slate-600" />,
+                desc: { fr: 'Commerces, services généraux, professions libérales', ar: 'تجارة، خدمات عامة، مهن حرة، حاجيات متنوعة' }
+              }
+            ].map((item) => (
               <div
-                key={item.id}
-                id={`purpose-card-${item.id}`}
-                onClick={() => onSelectPurpose(item.id)}
+                key={item.journey}
+                id={`journey-card-${item.journey}`}
+                onClick={() => {
+                  if (onSelectJourney) {
+                    onSelectJourney(item.journey);
+                  } else {
+                    onSelectPurpose(item.purpose);
+                  }
+                }}
                 className="group p-4 sm:p-5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-blue-400 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
@@ -617,7 +678,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform">
-                  <span>{language === 'ar' ? 'اختر هذا الهدف' : 'Analyser ce besoin'}</span>
+                  <span>{language === 'ar' ? 'بدء هذا المسار' : 'Lancer ce parcours'}</span>
                   <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                 </div>
               </div>
