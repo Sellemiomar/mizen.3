@@ -1,20 +1,15 @@
-import { CostEstimate, FinancingProgram, RateOrigin } from '../types/financing';
+import { CostEstimate, FinancingProgram, FinancingStructure, RateOrigin } from '../types/financing';
 
 /**
- * Mizen Financial Calculation Module
+ * Mizen Financial Calculation & Simulation Engine
  * 
  * Strict discipline:
  * - Distinguishes Total Project Cost, User Contribution, and Financing Requested.
- * - Distinguishes Rate Origins:
- *     * official_current_benchmark (e.g. BCT TMM benchmark)
- *     * subsidized_fixed_decree (e.g. BTS subsidized rate by decree)
- *     * user_provided (user entered rate)
- *     * estimated_market_spread (e.g. TMM + estimated bank margin)
- *     * interest_free_grant (0% for public subsidies)
- *     * unavailable (rate cannot be determined without bank quotation)
+ * - Distinguishes explicit Financing Structures (Conventional credit, Leasing, Mourabaha, Guarantee, Grant).
+ * - Distinguishes Rate Origins (Official BCT benchmark, Subsidized decree, User provided, Estimated spread, Unavailable).
  * - If rate or terms are variable, negotiable, or unverified: explicitly returns canCalculateReliably: false.
- * - NEVER fabricates missing interest rates or silent 7% defaults.
- * - Clearly documents assumptions (annuités constantes, différé d'amortissement).
+ * - NEVER fabricates missing interest rates, hidden 18% microcredit defaults, or fake 7% amortizing quotes.
+ * - Clearly documents assumptions and evidence provenance.
  */
 
 export const TUNISIAN_TMM_BENCHMARK = {
@@ -27,16 +22,29 @@ export const TUNISIAN_TMM_BENCHMARK = {
 
 export const CURRENT_TUNISIAN_TMM_PERCENT = TUNISIAN_TMM_BENCHMARK.rate;
 
+export function getFinancingStructure(program: FinancingProgram): FinancingStructure {
+  if (program.id === 'leasing_vehicule_pro') return 'LEASING';
+  if (program.category === 'islamic_finance' || program.rateType === 'profit_margin') return 'MOURABAHA';
+  if (program.category === 'grant_subsidy') return 'GRANT_SUBSIDY';
+  if (program.category === 'guarantee') return 'GUARANTEE';
+  return 'CONVENTIONAL_CREDIT';
+}
+
 export function calculateFinancingCost(
   financingRequested: number,
   program: FinancingProgram,
   preferredDurationMonths?: number,
   userProvidedRate?: number
 ): CostEstimate {
+  const structure = getFinancingStructure(program);
+  const evidenceStatus = program.verification.status;
+
   // If amount requested is zero or negative
   if (financingRequested <= 0) {
     return {
       canCalculateReliably: false,
+      financingStructure: structure,
+      evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
         fr: 'Montant non renseigné',
@@ -70,6 +78,8 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: true,
+      financingStructure: structure,
+      evidenceStatus,
       rateOrigin: 'user_provided',
       rateOriginLabel: {
         fr: `Taux personnalisé renseigné par l'utilisateur (${userProvidedRate}%)`,
@@ -92,6 +102,8 @@ export function calculateFinancingCost(
   if (program.category === 'grant_subsidy' && program.rateType === 'interest_free') {
     return {
       canCalculateReliably: true,
+      financingStructure: 'GRANT_SUBSIDY',
+      evidenceStatus,
       rateOrigin: 'interest_free_grant',
       rateOriginLabel: {
         fr: 'Subvention publique (0% intérêt)',
@@ -118,6 +130,8 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: false,
+      financingStructure: 'GUARANTEE',
+      evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
         fr: 'Commission variable selon le mécanisme',
@@ -139,8 +153,40 @@ export function calculateFinancingCost(
     };
   }
 
-  // 3. Variable rates indexed to BCT TMM (e.g. BFPME, Commercial Banks)
-  // Strict trust model: Automatic calculation suspended until real-time BCT TMM and bank margin are officially sourced.
+  // 3. Leasing Véhicules & Équipements Professionnels (e.g. Leasing BH Bank)
+  if (program.id === 'leasing_vehicule_pro' || structure === 'LEASING') {
+    const duration = preferredDurationMonths 
+      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
+      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+
+    return {
+      canCalculateReliably: false,
+      financingStructure: 'LEASING',
+      evidenceStatus,
+      rateOrigin: 'unavailable',
+      rateOriginLabel: {
+        fr: 'Loyer financier indexé TMM + marge du bailleur',
+        ar: 'إيجار مالي مرتبط بـ TMM + هامش شركة الإيجار'
+      },
+      monthlyPayment: undefined,
+      totalRepayment: undefined,
+      totalCostOfFinancing: undefined,
+      durationMonths: duration,
+      gracePeriodMonths: 0,
+      firstRent: Math.round(financingRequested * 0.15), // Indicatif 15% premier loyer majoré
+      residualValue: Math.round(financingRequested * 0.01), // Valeur de rachat symbolique 1%
+      calculationExplanation: {
+        fr: "Structure en crédit-bail (leasing) : premier loyer majoré d'apport (~15% à 20%), loyers financiers mensuels indexés sur TMM + marge bailleur, et valeur résiduelle de rachat en fin de contrat. Simulation précise subordonnée à l'offre ferme de la société de leasing.",
+        ar: "صيغة الإيجار المالي (ليزينغ) : قسط أول مسبق (~15% إلى 20%)، أقساط إيجار شهرية مرتبطة بـ TMM وهامش المؤجر، وقيمة شراء متبقية في نهاية العقد. المحاكاة الدقيقة تخضع لعرض التمويل النهائي من شركة الإيجار المالي."
+      },
+      unreliableReason: {
+        fr: "Loyer mensuel contractuel : dépend de la valeur résiduelle convenue et de la marge du bailleur lors de l'offre ferme.",
+        ar: "قسط الإيجار المالي التعاقدي : يتحدد بناءً على القيمة المتبقية المتفق عليها وهامش شركة الليزينغ في العرض الرسمي."
+      }
+    };
+  }
+
+  // 4. Variable rates indexed to BCT TMM (e.g. BFPME, Commercial Banks)
   if (program.rateType === 'variable_tmm') {
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
@@ -148,9 +194,11 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: false, // Variable TMM cannot be reliably calculated upfront without current BCT quote & bank spread
+      financingStructure: 'CONVENTIONAL_CREDIT',
+      evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: 'Taux variable indexé TMM (simulation automatique désactivée)',
+        fr: 'Taux variable indexé TMM (simulation automatique suspendue)',
         ar: 'نسبة متغيرة مرتبطة بـ TMM (المحاكاة التلقائية معطلة)'
       },
       monthlyPayment: undefined, // No speculative numbers
@@ -169,8 +217,7 @@ export function calculateFinancingCost(
     };
   }
 
-  // 4. Microcredit with variable/tier rates (e.g. Enda Tamweel: 16%-24%)
-  // DO NOT use an arbitrary default such as 18% to create a seemingly precise repayment quote.
+  // 5. Microcredit with variable/tier rates (e.g. Enda Tamweel: 16%-24%)
   if (program.category === 'microcredit') {
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
@@ -178,12 +225,14 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: false,
+      financingStructure: 'CONVENTIONAL_CREDIT',
+      evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
         fr: 'Fourchette microfinance variable (TEG ~16% à 24%)',
         ar: 'نطاق تمويل أصغر متغير (نسبة شاملة ~16% إلى 24%)'
       },
-      monthlyPayment: undefined, // NO single fake-precise number
+      monthlyPayment: undefined,
       totalRepayment: undefined,
       totalCostOfFinancing: undefined,
       durationMonths: duration,
@@ -199,8 +248,7 @@ export function calculateFinancingCost(
     };
   }
 
-  // 5. Islamic Mourabaha (e.g. Banque Zitouna)
-  // DO NOT use an invented/default margin such as 9.5% to calculate a precise repayment.
+  // 6. Islamic Mourabaha (e.g. Banque Zitouna)
   if (program.category === 'islamic_finance' || program.rateType === 'profit_margin') {
     const duration = preferredDurationMonths 
       ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
@@ -208,29 +256,30 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: false,
+      financingStructure: 'MOURABAHA',
+      evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
         fr: 'Marge Mourabaha contractuelle à confirmer',
         ar: 'هامش ربح مرابحة تعاقدي خاضع للتأكيد'
       },
-      monthlyPayment: undefined, // NO single fake-precise quote
+      monthlyPayment: undefined,
       totalRepayment: undefined,
       totalCostOfFinancing: undefined,
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: 'Marge/prix final à confirmer auprès du financeur. Marge bénéficiaire fixée par contrat Mourabaha — à confirmer auprès de la banque. En finance islamique, le prix de revente et l\'échéancier dépendent des factures pro-forma agréées par le comité de conformité.',
-        ar: 'هامش الربح والسعر النهائي رهن التأكيد من الممول. هامش ربح محدد بموجب عقد المرابحة — رهن التأكيد من البنك. في الصيرفة الإسلامية، يتحدد ثمن البيع وجدول الأقساط بناءً على فواتير المزود المعتمدة من هيئة الرقابة الشرعية.'
+        fr: "Structure de vente avec marge bénéficiaire (Mourabaha islamique) sans intérêts usuraires : prix de revient d'acquisition + marge convenue, remboursable en mensualités constantes après validation du comité de conformité chariatique.",
+        ar: "عقد مرابحة إسلامية خالي من الفوائد الربوية : ثمن الشراء + هامش ربح معلوم، يسدد على أقساط شهرية ثابتة بعد مصادقة هيئة الرقابة الشرعية."
       },
       unreliableReason: {
-        fr: 'Marge/prix final à confirmer auprès du financeur — simulation de remboursement chiffrée impossible sans offre formelle de la banque.',
-        ar: 'هامش الربح والسعر النهائي رهن التأكيد من الممول — يتعذر احتساب قسط محدد دون عرض تمويل رسمي من المصرف.'
+        fr: "Marge bénéficiaire contractuelle : à confirmer selon le devis d'acquisition et l'offre formelle de la banque islamique.",
+        ar: "هامش الربح التعاقدي : للتأكيد استناداً لفاتورة الشراء والعرض الرسمي من المصرف الإسلامي."
       }
     };
   }
 
-  // 6. Known Subsidized Fixed Rates (e.g. BTS Diplômés 6%, FONAPRAM 5%, FOPRODI 2%)
-  // Only executed if program has an official, decree-backed subsidized fixed rate!
+  // 7. Known Subsidized Fixed Rates (e.g. BTS Diplômés 6%, FONAPRAM 5%, FOPRODI 2%)
   if (program.estimatedRateAnnual !== undefined && program.rateType === 'subsidized') {
     const rateAnnual = program.estimatedRateAnnual;
     const duration = preferredDurationMonths 
@@ -255,6 +304,8 @@ export function calculateFinancingCost(
 
     return {
       canCalculateReliably: true,
+      financingStructure: structure,
+      evidenceStatus,
       rateOrigin: 'subsidized_fixed_decree',
       rateOriginLabel: {
         fr: `Taux bonifié réglementé par convention (${rateAnnual}%)`,
@@ -274,9 +325,11 @@ export function calculateFinancingCost(
     };
   }
 
-  // 7. Rate Truly Unavailable — DO NOT FABRICATE A DEFAULT
+  // 8. Default fallback when rate truly unavailable
   return {
     canCalculateReliably: false,
+    financingStructure: structure,
+    evidenceStatus,
     rateOrigin: 'unavailable',
     rateOriginLabel: {
       fr: 'Taux non disponible',

@@ -8,7 +8,8 @@ import {
   RuleEvaluation,
   FinancialEvaluation,
   EvidenceEvaluation,
-  MatchStatus
+  MatchStatus,
+  ApplicationReadiness
 } from '../types/financing';
 import { FINANCING_PROGRAMS, PROVIDERS, REGIONAL_DEVELOPMENT_ZONES } from '../data/financingData';
 import { calculateFinancingCost } from './financialCalculations';
@@ -231,6 +232,80 @@ export function evaluateApplicability(
   };
 }
 
+export function evaluateApplicationReadiness(
+  applicant: ApplicantProfile,
+  program: FinancingProgram,
+  ruleEvaluations: RuleEvaluation[]
+): ApplicationReadiness {
+  const knownFields: ApplicationReadiness['knownFields'] = [];
+  const missingApplicantFields: ApplicationReadiness['missingApplicantFields'] = [];
+  const lenderConfirmationFields: ApplicationReadiness['lenderConfirmationFields'] = [];
+
+  if (applicant.financingRequested) {
+    knownFields.push({
+      key: 'financingRequested',
+      label: { fr: 'Financement demandé', ar: 'التمويل المطلوب' },
+      value: `${applicant.financingRequested.toLocaleString('fr-TN')} TND`
+    });
+  }
+  if (applicant.userContribution !== undefined) {
+    knownFields.push({
+      key: 'userContribution',
+      label: { fr: 'Apport personnel', ar: 'التمويل الذاتي' },
+      value: `${applicant.userContribution.toLocaleString('fr-TN')} TND`
+    });
+  }
+  if (applicant.location) {
+    knownFields.push({
+      key: 'location',
+      label: { fr: "Gouvernorat d'implantation", ar: 'الولاية' },
+      value: applicant.location
+    });
+  }
+  if (applicant.sector) {
+    knownFields.push({
+      key: 'sector',
+      label: { fr: "Secteur d'activité", ar: 'قطاع النشاط' },
+      value: applicant.sector
+    });
+  }
+
+  // Missing fields from rules evaluated to UNKNOWN
+  for (const rule of ruleEvaluations) {
+    if (rule.status === 'UNKNOWN') {
+      missingApplicantFields.push({
+        key: rule.ruleId,
+        label: rule.label
+      });
+    }
+  }
+
+  // Unverified/Lender confirmation fields from program verification
+  if (program.verification.unverifiedFields && program.verification.unverifiedFields.length > 0) {
+    for (const field of program.verification.unverifiedFields) {
+      lenderConfirmationFields.push({
+        key: field,
+        label: {
+          fr: getFieldLabel(field, 'fr'),
+          ar: getFieldLabel(field, 'ar')
+        }
+      });
+    }
+  }
+
+  const requiredDocuments = program.requiredDocuments || [];
+  const totalWeight = Math.max(knownFields.length + missingApplicantFields.length, 1);
+  const readinessScorePercent = Math.min(100, Math.round((knownFields.length / totalWeight) * 100));
+
+  return {
+    knownFields,
+    missingApplicantFields,
+    lenderConfirmationFields,
+    requiredDocuments,
+    readinessScorePercent
+  };
+}
+
 /**
  * Main compatibility evaluator combining the 4 independent dimensions:
  * 1. Applicability Gate
@@ -257,6 +332,7 @@ export function evaluateProgramCompatibility(
     potentialIssues.push(applicability.reason);
 
     const costEstimate = calculateFinancingCost(0, program);
+    const applicationReadiness = evaluateApplicationReadiness(applicant, program, []);
 
     return {
       program,
@@ -285,6 +361,7 @@ export function evaluateProgramCompatibility(
         alignmentLevel: 'not_applicable'
       },
       costEstimate,
+      applicationReadiness,
       compatibilitySummary: {
         fr: `Non applicable à ce besoin de financement.`,
         ar: `غير مطابق لهذا الاحتياج التمويلي.`
@@ -924,6 +1001,8 @@ export function evaluateProgramCompatibility(
       : `وجود شروط غير متوفرة تعيق الاستفادة من هذا البرنامج.`
   };
 
+  const applicationReadiness = evaluateApplicationReadiness(applicant, program, ruleEvaluations);
+
   return {
     program,
     provider,
@@ -940,6 +1019,7 @@ export function evaluateProgramCompatibility(
       alignmentLevel
     },
     costEstimate,
+    applicationReadiness,
     compatibilitySummary,
     scoreWeight
   };

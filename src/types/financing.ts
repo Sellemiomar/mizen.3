@@ -213,8 +213,57 @@ export interface ApplicantProfile {
     ar: string;
   };
 
+  // User prioritization preferences
+  userPriorities?: UserPriority[];
+
   // Context notes from user
   projectDescription?: string;
+}
+
+export type FinancingStructure = 
+  | 'CONVENTIONAL_CREDIT'
+  | 'LEASING'
+  | 'IJARA'
+  | 'MOURABAHA'
+  | 'GRANT_SUBSIDY'
+  | 'GUARANTEE'
+  | 'OTHER'
+  | 'UNKNOWN';
+
+export type UserPriority = 
+  | 'LOWEST_MONTHLY_PAYMENT'
+  | 'LOWEST_INITIAL_CONTRIBUTION'
+  | 'SHORTEST_DURATION'
+  | 'LONGEST_DURATION'
+  | 'ISLAMIC_FINANCING'
+  | 'FAST_APPLICATION'
+  | 'MINIMUM_FEES';
+
+export interface ApplicationReadiness {
+  knownFields: {
+    key: string;
+    label: {
+      fr: string;
+      ar: string;
+    };
+    value: string;
+  }[];
+  missingApplicantFields: {
+    key: string;
+    label: {
+      fr: string;
+      ar: string;
+    };
+  }[];
+  lenderConfirmationFields: {
+    key: string;
+    label: {
+      fr: string;
+      ar: string;
+    };
+  }[];
+  requiredDocuments: DocumentRequirement[];
+  readinessScorePercent: number;
 }
 
 export interface DemoScenario {
@@ -432,6 +481,8 @@ export type RateOrigin =
 
 export interface CostEstimate {
   canCalculateReliably: boolean;
+  financingStructure: FinancingStructure;
+  evidenceStatus: VerificationStatus;
   rateOrigin?: RateOrigin;
   rateOriginLabel?: {
     fr: string;
@@ -445,6 +496,8 @@ export interface CostEstimate {
   assumedRatePercent?: number;
   durationMonths?: number;
   gracePeriodMonths?: number;
+  firstRent?: number;
+  residualValue?: number;
   calculationExplanation: {
     fr: string;
     ar: string;
@@ -469,6 +522,7 @@ export interface MatchResult {
   evidenceEvaluation: EvidenceEvaluation;
   reasons: MatchReason;
   costEstimate: CostEstimate;
+  applicationReadiness: ApplicationReadiness;
   compatibilitySummary: {
     fr: string;
     ar: string;
