@@ -8,10 +8,13 @@ export type Language = 'fr' | 'ar';
 
 export type VerificationStatus = 
   | 'VERIFIED'
+  | 'VERIFIED_CURRENT'
+  | 'VERIFIED_HISTORICAL'
   | 'PARTIALLY_VERIFIED'
   | 'OUTDATED'
   | 'UNVERIFIED'
-  | 'SOURCE_UNAVAILABLE';
+  | 'SOURCE_UNAVAILABLE'
+  | 'UNKNOWN';
 
 export type ProviderType = 
   | 'public_bank'
@@ -399,6 +402,7 @@ export interface FinancingProgram {
     supportedPurposes?: FinancingPurpose[];
     supportedBuyerTypes?: ('individual' | 'business')[];
     requiresBusinessEntity?: boolean;
+    isFirstPropertyOnly?: boolean;
     unverifiedApplicability?: boolean;
   };
 
@@ -508,6 +512,9 @@ export interface CostEstimate {
   };
 }
 
+import { ExclusionReason, SimulatorReference } from './knowledge';
+export * from './knowledge';
+
 export interface MatchResult {
   program: FinancingProgram;
   provider: Provider;
@@ -523,6 +530,8 @@ export interface MatchResult {
   reasons: MatchReason;
   costEstimate: CostEstimate;
   applicationReadiness: ApplicationReadiness;
+  exclusionReason?: ExclusionReason;
+  officialSimulator?: SimulatorReference;
   compatibilitySummary: {
     fr: string;
     ar: string;

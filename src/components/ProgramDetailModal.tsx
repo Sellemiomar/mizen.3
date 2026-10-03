@@ -19,6 +19,7 @@ import { TRANSLATIONS } from '../i18n/translations';
 import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
 import { getFieldLabel } from '../utils/verificationLabels';
+import { getOfficialSimulator } from '../knowledge/catalogueAdapter';
 
 interface ProgramDetailModalProps {
   program: FinancingProgram;
@@ -436,6 +437,19 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
                 className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
                 <span>{t.officialSourceBtn}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            {getOfficialSimulator(program.id) && (
+              <a
+                href={getOfficialSimulator(program.id)?.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <Calculator className="w-3.5 h-3.5 text-blue-700" />
+                <span>{language === 'ar' ? 'المحاكي الرسمي' : 'Simulateur officiel'}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}

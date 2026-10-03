@@ -672,9 +672,104 @@ for (const prof of testProfiles) {
 }
 assert(zeroRawTokensFound, 'Zero internal camelCase or database identifiers exposed across all user-facing results');
 
+// -------------------------------------------------------------
+// Scenario V: Canonical Knowledge Catalogue Integrity & Provenance
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO V: Intégrité du Référentiel Canonique & Traçabilité des Sources ---');
+import { CANONICAL_PROVIDERS, CANONICAL_PRODUCTS, CANONICAL_METADATA } from '../src/knowledge/canonicalCatalogue';
+import { DISCOVERY_QUERIES, evaluateSourceFreshness } from '../src/knowledge/searchRegistry';
+import { extractFinancingFactsDeterministically, searchFinancingCatalogue } from '../src/knowledge/discoveryEngine';
+import { getOfficialSimulator, generateExclusionReason, getCatalogueHealthSummary } from '../src/knowledge/catalogueAdapter';
+
+// 1. Every active product has an existing registered provider
+const providerIdSet = new Set(CANONICAL_PROVIDERS.map(p => p.id));
+for (const product of CANONICAL_PRODUCTS) {
+  assert(providerIdSet.has(product.providerId), `Product ${product.id} must reference a registered provider (found ${product.providerId})`);
+  assert(product.sources.length > 0, `Product ${product.id} must have at least one source reference`);
+  assert(product.applicability.domains.length > 0, `Product ${product.id} must define financing domains`);
+  assert(product.applicability.applicantTypes.length > 0, `Product ${product.id} must define supported applicant types`);
+  
+  if (product.financialTerms.amount?.min) {
+    assert(product.financialTerms.amount.min > 0, `Product ${product.id} min amount must be positive`);
+  }
+  if (product.financialTerms.amount?.max) {
+    assert(product.financialTerms.amount.max > 0, `Product ${product.id} max amount must be positive`);
+  }
+}
+
+// 2. No duplicate provider or product IDs
+const uniqueProductIds = new Set(CANONICAL_PRODUCTS.map(p => p.id));
+assert(uniqueProductIds.size === CANONICAL_PRODUCTS.length, 'Zero duplicate product IDs in canonical catalogue');
+
+const uniqueProviderIds = new Set(CANONICAL_PROVIDERS.map(p => p.id));
+assert(uniqueProviderIds.size === CANONICAL_PROVIDERS.length, 'Zero duplicate provider IDs in canonical catalogue');
+
+// -------------------------------------------------------------
+// Scenario W: Search & Discovery Engine
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO W: Moteur de Recherche & Découverte de Faits Financiers ---');
+
+// 1. Search registry contains queries for all domains
+assert(DISCOVERY_QUERIES.length >= 8, 'Search registry contains queries across all financing domains');
+for (const q of DISCOVERY_QUERIES) {
+  assert(Boolean(q.queryFr && q.queryAr), `Query ${q.id} has both French and Arabic formulations`);
+}
+
+// 2. Deterministic fact extraction test
+const sampleDecreeText = "Décret n° 2017-278 : Le montant maximum est de 50 000 DT avec un apport personnel minimum de 20% et un remboursement sur 20 ans au taux de 2%.";
+const extracted = extractFinancingFactsDeterministically(sampleDecreeText, 'http://legislation.tn', 'JORT');
+assert(extracted.extractedFacts.length >= 2, 'Extracts multiple facts from raw regulatory text');
+assert(extracted.requiresReview === true, 'Extracted facts require human/developer review before canonical promotion');
+
+// 3. Source freshness evaluation
+const freshSource = evaluateSourceFreshness(new Date().toISOString());
+assert(freshSource.isOutdated === false, 'Recent source is marked verified/fresh');
+
+const staleSource = evaluateSourceFreshness('2022-01-01T00:00:00Z');
+assert(staleSource.isOutdated === true, 'Source older than 12 months is marked outdated');
+
+// 4. Search catalogue test
+const carSearch = searchFinancingCatalogue({ domain: 'CAR' });
+assert(carSearch.products.length >= 2, 'Search by CAR domain returns relevant vehicle financing products');
+
+// -------------------------------------------------------------
+// Scenario X: Exclusion Reasoning ("Why not?")
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO X: Moteur d\'Explication d\'Exclusion ("Pourquoi pas ce mécanisme ?") ---');
+
+const excludedHousing = generateExclusionReason(CANONICAL_PRODUCTS.find(p => p.id === 'premier_logement')!, 'PURPOSE_MISMATCH');
+assert(Boolean(excludedHousing.explanation.fr && excludedHousing.explanation.ar), 'Exclusion reason has clear FR and AR explanations');
+assert(excludedHousing.reasonCode === 'PURPOSE_MISMATCH', 'Exclusion code is PURPOSE_MISMATCH');
+
+// -------------------------------------------------------------
+// Scenario Y: Official Simulators & Guarantee Distinction
+// -------------------------------------------------------------
+console.log('\n--- SCENARIO Y: Simulateurs Officiels & Non-Assimilation des Garanties en Prêt Direct ---');
+
+// 1. Official simulators exist for key products
+const bhSim = getOfficialSimulator('premier_logement');
+assert(Boolean(bhSim && bhSim.official), 'Premier logement has official simulator reference');
+
+const tlfSim = getOfficialSimulator('leasing_vehicule_pro');
+assert(Boolean(tlfSim && tlfSim.official), 'TLF Leasing has official simulator reference');
+
+// 2. Guarantee mechanism is never presented as direct loan debt
+const sotugarProd = CANONICAL_PRODUCTS.find(p => p.id === 'sotugar_guarantee');
+assert(sotugarProd?.category === 'GUARANTEE', 'SOTUGAR is classified as GUARANTEE category');
+assert(sotugarProd?.financialTerms.rate?.type === 'NOT_APPLICABLE', 'SOTUGAR does not charge loan interest rate (NOT_APPLICABLE)');
+
+// -------------------------------------------------------------
+// Scenario Z: Knowledge Integrity & Batch 2 Regression Suite
+// -------------------------------------------------------------
+import { runKnowledgeIntegrityTests } from '../tests/knowledgeIntegrity.test';
+const integrityResults = runKnowledgeIntegrityTests();
+if (integrityResults.failed > 0) {
+  allPassed = false;
+}
+
 console.log('\n================================================================');
 if (allPassed) {
-  console.log('🎉 ALL 21 AUDIT SCENARIOS (A-U), LABEL SAFETY & FORMAL INVARIANTS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL AUDIT SCENARIOS, BATCH 2 EVIDENCE CLOSURES, LABEL SAFETY & INVARIANTS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME CHECKS FAILED');
   process.exit(1);

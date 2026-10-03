@@ -1,4 +1,5 @@
 import { CostEstimate, FinancingProgram, FinancingStructure, RateOrigin } from '../types/financing';
+import { isFieldVerifiedCurrent, getRuleEvidence } from '../knowledge/knowledgeRegistry';
 
 /**
  * Mizen Financial Calculation & Simulation Engine
@@ -8,7 +9,7 @@ import { CostEstimate, FinancingProgram, FinancingStructure, RateOrigin } from '
  * - Distinguishes explicit Financing Structures (Conventional credit, Leasing, Mourabaha, Guarantee, Grant).
  * - Distinguishes Rate Origins (Official BCT benchmark, Subsidized decree, User provided, Estimated spread, Unavailable).
  * - If rate or terms are variable, negotiable, or unverified: explicitly returns canCalculateReliably: false.
- * - NEVER fabricates missing interest rates, hidden 18% microcredit defaults, or fake 7% amortizing quotes.
+ * - NEVER fabricates missing interest rates, hidden 18% microcredit defaults, or fake amortizing quotes.
  * - Clearly documents assumptions and evidence provenance.
  */
 
@@ -63,9 +64,11 @@ export function calculateFinancingCost(
 
   // If user provided a verified quote/rate they received
   if (userProvidedRate !== undefined && userProvidedRate > 0) {
+    const minDur = program.durationMonthsMin || 12;
+    const maxDur = program.durationMonthsMax || 84;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     const monthlyRate = userProvidedRate / 100 / 12;
     const n = duration;
@@ -113,7 +116,7 @@ export function calculateFinancingCost(
       totalRepayment: 0,
       totalCostOfFinancing: 0,
       assumedRatePercent: 0,
-      durationMonths: program.durationMonthsMin,
+      durationMonths: program.durationMonthsMin || 12,
       gracePeriodMonths: 0,
       calculationExplanation: {
         fr: 'Subvention ou prime publique non remboursable sous réserve du respect des obligations conventionnelles.',
@@ -124,8 +127,10 @@ export function calculateFinancingCost(
 
   // 2. Pure Guarantee Mechanism (SOTUGAR) - Mechanism-Specific Guarantee Support
   if (program.category === 'guarantee') {
+    const minDur = program.durationMonthsMin || 12;
+    const maxDur = program.durationMonthsMax || 120;
     const durationMonths = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
       : 60;
 
     return {
@@ -143,8 +148,8 @@ export function calculateFinancingCost(
       durationMonths,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: "SOTUGAR est un fonds public de garantie intervenant en couverture des crédits bancaires et non un prêteur direct. La commission ou contribution de garantie est spécifique au mécanisme sollicité (FNG, lignes dédiées) et collectée via l'établissement bancaire partenaire. À confirmer selon le mécanisme de garantie et les conditions applicables.",
-        ar: "الشركة التونسية للضمان (SOTUGAR) هي صندوق عمومي لتغطية مخاطر القروض البنكية وليست جهة إقراض مباشر. عمولة أو مساهمة الضمان تختلف بحسب الآلية المعتمدة وتُستخلص عبر البنك الشريك. للتأكيد حسب آلية الضمان والشروط المعمول بها."
+        fr: "SOTUGAR est un fonds public de garantie intervenant en couverture des crédits bancaires et participations et non un prêteur direct. La commission ou contribution de garantie est spécifique au mécanisme sollicité (FGPME 75/90, FNG, etc.) et collectée via l'établissement bancaire partenaire. SOTUGAR n'applique aucun taux d'intérêt débiteur.",
+        ar: "الشركة التونسية للضمان (SOTUGAR) هي صندوق عمومي لتغطية مخاطر القروض والمساهمات وليست جهة إقراض مباشر. عمولة الضمان تختلف بحسب الآلية المعتمدة وتُستخلص عبر البنك الشريك. سوتوغار لا تطبق فوائض بنكية."
       },
       unreliableReason: {
         fr: "Commission/contribution : à confirmer selon le mécanisme de garantie et les conditions applicables de la banque partenaire.",
@@ -153,11 +158,13 @@ export function calculateFinancingCost(
     };
   }
 
-  // 3. Leasing Véhicules & Équipements Professionnels (e.g. Leasing BH Bank)
+  // 3. Leasing Véhicules & Équipements Professionnels (e.g. TLF)
   if (program.id === 'leasing_vehicule_pro' || structure === 'LEASING') {
+    const minDur = program.durationMonthsMin || 24;
+    const maxDur = program.durationMonthsMax || 60;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     return {
       canCalculateReliably: false,
@@ -173,11 +180,9 @@ export function calculateFinancingCost(
       totalCostOfFinancing: undefined,
       durationMonths: duration,
       gracePeriodMonths: 0,
-      firstRent: Math.round(financingRequested * 0.15), // Indicatif 15% premier loyer majoré
-      residualValue: Math.round(financingRequested * 0.01), // Valeur de rachat symbolique 1%
       calculationExplanation: {
-        fr: "Structure en crédit-bail (leasing) : premier loyer majoré d'apport (~15% à 20%), loyers financiers mensuels indexés sur TMM + marge bailleur, et valeur résiduelle de rachat en fin de contrat. Simulation précise subordonnée à l'offre ferme de la société de leasing.",
-        ar: "صيغة الإيجار المالي (ليزينغ) : قسط أول مسبق (~15% إلى 20%)، أقساط إيجار شهرية مرتبطة بـ TMM وهامش المؤجر، وقيمة شراء متبقية في نهاية العقد. المحاكاة الدقيقة تخضع لعرض التمويل النهائي من شركة الإيجار المالي."
+        fr: "Structure en crédit-bail (leasing) : premier loyer majoré d'apport, loyers financiers mensuels indexés sur TMM + marge bailleur, et valeur résiduelle de rachat en fin de contrat. Simulation précise subordonnée à l'offre ferme de la société de leasing.",
+        ar: "صيغة الإيجار المالي (ليزينغ) : قسط أول مسبق، أقساط إيجار شهرية مرتبطة بـ TMM وهامش المؤجر، وقيمة شراء متبقية في نهاية العقد. المحاكاة الدقيقة تخضع لعرض التمويل النهائي من شركة الإيجار المالي."
       },
       unreliableReason: {
         fr: "Loyer mensuel contractuel : dépend de la valeur résiduelle convenue et de la marge du bailleur lors de l'offre ferme.",
@@ -188,12 +193,14 @@ export function calculateFinancingCost(
 
   // 4. Variable rates indexed to BCT TMM (e.g. BFPME, Commercial Banks)
   if (program.rateType === 'variable_tmm') {
+    const minDur = program.durationMonthsMin || 24;
+    const maxDur = program.durationMonthsMax || 120;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     return {
-      canCalculateReliably: false, // Variable TMM cannot be reliably calculated upfront without current BCT quote & bank spread
+      canCalculateReliably: false, // Variable TMM cannot be reliably calculated upfront without current BCT quote & contract spread
       financingStructure: 'CONVENTIONAL_CREDIT',
       evidenceStatus,
       rateOrigin: 'unavailable',
@@ -217,11 +224,13 @@ export function calculateFinancingCost(
     };
   }
 
-  // 5. Microcredit with variable/tier rates (e.g. Enda Tamweel: 16%-24%)
+  // 5. Microcredit with variable/tier rates (e.g. Enda Tamweel)
   if (program.category === 'microcredit') {
+    const minDur = program.durationMonthsMin || 12;
+    const maxDur = program.durationMonthsMax || 60;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     return {
       canCalculateReliably: false,
@@ -229,8 +238,8 @@ export function calculateFinancingCost(
       evidenceStatus,
       rateOrigin: 'unavailable',
       rateOriginLabel: {
-        fr: 'Fourchette microfinance variable (TEG ~16% à 24%)',
-        ar: 'نطاق تمويل أصغر متغير (نسبة شاملة ~16% إلى 24%)'
+        fr: 'Fourchette microfinance variable',
+        ar: 'نطاق تمويل أصغر متغير'
       },
       monthlyPayment: undefined,
       totalRepayment: undefined,
@@ -238,8 +247,8 @@ export function calculateFinancingCost(
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Barème variable selon l'agence : le taux effectif global en microfinance s'établit généralement entre 16% et 24% l'an selon le type d'équipement, la durée et l'évaluation de proximité. Aucun devis fixe ne peut être automatisé sans étude locale.`,
-        ar: `جدول متغير حسب الفرع : يتراوح المعدل الفعلي الشامل في مؤسسات التمويل الأصغر عادة بين 16% و24% سنوياً حسب نوع المعدات والمدة ونتائج المعاينة الميدانية. لا يمكن استخراج قسط محدد دون دراسة ميدانية.`
+        fr: `Barème variable selon l'agence : le taux effectif global en microfinance varie selon le type d'équipement, la durée et l'évaluation de proximité. Aucun devis fixe ne peut être automatisé sans étude locale.`,
+        ar: `جدول متغير حسب الفرع : يختلف المعدل الفعلي الشامل في مؤسسات التمويل الأصغر حسب نوع المعدات والمدة ونتائج المعاينة الميدانية. لا يمكن استخراج قسط محدد دون دراسة ميدانية.`
       },
       unreliableReason: {
         fr: 'Taux non disponible — simulation de remboursement impossible avec les informations vérifiées (devis d’agence requis).',
@@ -250,9 +259,11 @@ export function calculateFinancingCost(
 
   // 6. Islamic Mourabaha (e.g. Banque Zitouna)
   if (program.category === 'islamic_finance' || program.rateType === 'profit_margin') {
+    const minDur = program.durationMonthsMin || 12;
+    const maxDur = program.durationMonthsMax || 84;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     return {
       canCalculateReliably: false,
@@ -279,12 +290,15 @@ export function calculateFinancingCost(
     };
   }
 
-  // 7. Known Subsidized Fixed Rates (e.g. BTS Diplômés 6%, FONAPRAM 5%, FOPRODI 2%)
+  // 7. Verified Subsidized Fixed Rates (e.g. BTS Diplômés 6%)
+  // STRICT: only calculate reliably if the rate is verified current in canonical knowledge or official decree
   if (program.estimatedRateAnnual !== undefined && program.rateType === 'subsidized') {
     const rateAnnual = program.estimatedRateAnnual;
+    const minDur = program.durationMonthsMin || 24;
+    const maxDur = program.durationMonthsMax || 84;
     const duration = preferredDurationMonths 
-      ? Math.min(Math.max(preferredDurationMonths, program.durationMonthsMin), program.durationMonthsMax)
-      : Math.round((program.durationMonthsMin + program.durationMonthsMax) / 2);
+      ? Math.min(Math.max(preferredDurationMonths, minDur), maxDur)
+      : Math.round((minDur + maxDur) / 2);
 
     const monthlyRate = rateAnnual / 100 / 12;
     const n = duration;
@@ -319,8 +333,8 @@ export function calculateFinancingCost(
       durationMonths: duration,
       gracePeriodMonths: program.gracePeriodMonthsMin,
       calculationExplanation: {
-        fr: `Mensualité calculée de ${monthlyPayment.toLocaleString('fr-FR')} DT/mois sur ${duration} mois (taux annuel conventionné de ${rateAnnual}%, hors différé d'amortissement de ${program.gracePeriodMonthsMin} mois).`,
-        ar: `قسط شهري محسوب بقيمة ${monthlyPayment.toLocaleString('fr-FR')} د/شهرياً على ${duration} شهراً (نسبة سنوية ${rateAnnual}%، دون احتساب فترة إمهال قدرها ${program.gracePeriodMonthsMin} شهراً).`
+        fr: `Mensualité calculée de ${monthlyPayment.toLocaleString('fr-FR')} DT/mois sur ${duration} mois (taux annuel conventionné de ${rateAnnual}%, hors différé d'amortissement).`,
+        ar: `قسط شهري محسوب بقيمة ${monthlyPayment.toLocaleString('fr-FR')} د/شهرياً على ${duration} شهراً (نسبة سنوية ${rateAnnual}%).`
       }
     };
   }
@@ -335,7 +349,7 @@ export function calculateFinancingCost(
       fr: 'Taux non disponible',
       ar: 'النسبة غير متوفرة'
     },
-    durationMonths: preferredDurationMonths ?? program.durationMonthsMin,
+    durationMonths: preferredDurationMonths ?? (program.durationMonthsMin || 12),
     gracePeriodMonths: program.gracePeriodMonthsMin,
     calculationExplanation: {
       fr: 'Taux non disponible — simulation de remboursement impossible avec les informations vérifiées.',

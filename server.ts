@@ -3,6 +3,10 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import { CANONICAL_PROVIDERS, CANONICAL_PRODUCTS, CANONICAL_METADATA } from './src/knowledge/canonicalCatalogue';
+import { DISCOVERY_QUERIES } from './src/knowledge/searchRegistry';
+import { extractFinancingFactsDeterministically, searchFinancingCatalogue } from './src/knowledge/discoveryEngine';
+import { getCatalogueHealthSummary } from './src/knowledge/catalogueAdapter';
 
 dotenv.config();
 
@@ -34,6 +38,152 @@ app.get('/api/health', (req, res) => {
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
     timestamp: new Date().toISOString()
   });
+});
+
+// =========================================================================
+// KNOWLEDGE LAYER ENDPOINTS
+// =========================================================================
+
+// 1. Catalogue Metadata & Health
+app.get('/api/knowledge/metadata', (req, res) => {
+  res.json({
+    success: true,
+    metadata: CANONICAL_METADATA,
+    summary: getCatalogueHealthSummary()
+  });
+});
+
+// 2. Providers Registry
+app.get('/api/knowledge/providers', (req, res) => {
+  res.json({
+    success: true,
+    count: CANONICAL_PROVIDERS.length,
+    providers: CANONICAL_PROVIDERS
+  });
+});
+
+// 3. Products Catalogue
+app.get('/api/knowledge/products', (req, res) => {
+  const { category, providerId } = req.query;
+  let products = CANONICAL_PRODUCTS;
+
+  if (category) {
+    products = products.filter(p => p.category === category || p.financingDomains.includes(category as any));
+  }
+  if (providerId) {
+    products = products.filter(p => p.providerId === providerId);
+  }
+
+  res.json({
+    success: true,
+    count: products.length,
+    products
+  });
+});
+
+// 4. Discovery Queries
+app.get('/api/knowledge/queries', (req, res) => {
+  res.json({
+    success: true,
+    count: DISCOVERY_QUERIES.length,
+    queries: DISCOVERY_QUERIES
+  });
+});
+
+// 5. Knowledge Search
+app.post('/api/knowledge/search', (req, res) => {
+  const { domain, keyword, providerId, applicantType, language } = req.body || {};
+  const searchResults = searchFinancingCatalogue({
+    domain,
+    keyword,
+    providerId,
+    applicantType,
+    language
+  });
+  res.json({
+    success: true,
+    ...searchResults
+  });
+});
+
+// 6. Fact Discovery / Extraction
+app.post('/api/knowledge/discover', async (req, res) => {
+  const { sourceText, sourceUrl, publisher } = req.body || {};
+  if (!sourceText || typeof sourceText !== 'string') {
+    return res.status(400).json({ error: 'sourceText is required' });
+  }
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    const extracted = extractFinancingFactsDeterministically(sourceText, sourceUrl, publisher);
+    return res.json({
+      success: true,
+      source: 'deterministic_extractor',
+      result: extracted
+    });
+  }
+
+  try {
+    const prompt = `You are Mizen's financial knowledge extraction engine for the Tunisian financing market.
+Analyze the following source document excerpt from a Tunisian bank, public agency, or decree:
+"""${sourceText}"""
+
+Extract factual parameters without inventing missing data.
+Rules:
+- maxAmount: numerical maximum funding amount in TND if stated
+- minContributionPercent: numerical minimum own contribution percentage if stated
+- rateFormula: string describing rate (e.g. "TMM + 2.5%" or "2% fixe") if stated
+- durationMonthsMax: maximum duration in months if stated
+- gracePeriodMonths: grace period in months if stated
+- identifiedProvider: name or acronym of Tunisian institution if identifiable
+- targetAudience: summary of eligible applicants
+- requiresReview: boolean (always true for newly extracted data)
+- confidence: "HIGH" | "MEDIUM" | "LOW"`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            maxAmount: { type: Type.STRING, nullable: true },
+            minContributionPercent: { type: Type.STRING, nullable: true },
+            rateFormula: { type: Type.STRING, nullable: true },
+            durationMonthsMax: { type: Type.STRING, nullable: true },
+            gracePeriodMonths: { type: Type.STRING, nullable: true },
+            identifiedProvider: { type: Type.STRING, nullable: true },
+            targetAudience: { type: Type.STRING, nullable: true },
+            requiresReview: { type: Type.BOOLEAN },
+            confidence: { type: Type.STRING }
+          },
+          required: ['requiresReview', 'confidence']
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    const deterministic = extractFinancingFactsDeterministically(sourceText, sourceUrl, publisher);
+
+    return res.json({
+      success: true,
+      source: 'gemini_with_provenance',
+      result: {
+        ...deterministic,
+        geminiExtraction: parsed,
+        requiresReview: true
+      }
+    });
+  } catch (err) {
+    console.warn('Gemini discovery extraction fallback:', err);
+    const extracted = extractFinancingFactsDeterministically(sourceText, sourceUrl, publisher);
+    return res.json({
+      success: true,
+      source: 'deterministic_extractor',
+      result: extracted
+    });
+  }
 });
 
 // Helper to parse numbers & million notations
