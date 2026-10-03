@@ -9,13 +9,14 @@ import {
   FinancialEvaluation,
   EvidenceEvaluation,
   MatchStatus,
-  ApplicationReadiness
+  ApplicationReadiness,
+  EligibilityOutcome
 } from '../types/financing';
 import { FINANCING_PROGRAMS, PROVIDERS, REGIONAL_DEVELOPMENT_ZONES } from '../data/financingData';
 import { calculateFinancingCost } from './financialCalculations';
 import { formatVerificationNeed, getFieldLabel } from '../utils/verificationLabels';
 import { getOfficialSimulator, generateExclusionReason } from '../knowledge/catalogueAdapter';
-import { getCanonicalProgram, isFieldVerifiedCurrent, getProgramOperationalStatus } from '../knowledge/knowledgeRegistry';
+import { CLAIMS_REPOSITORY } from '../knowledge/claimsRepository';
 
 /**
  * Evaluates whether a program is applicable to the applicant's financing need.
@@ -54,6 +55,7 @@ export function evaluateApplicability(
   // 1. Check supportedJourneys metadata
   if (program.applicability?.supportedJourneys && journey) {
     if (!program.applicability.supportedJourneys.includes(journey)) {
+      // If purpose is specified and supported, check if cross-journey match is valid
       const hasDirectPurposeMatch = purpose && program.purposes.includes(purpose);
       if (!hasDirectPurposeMatch) {
         return {
@@ -118,80 +120,53 @@ export function evaluateApplicability(
   // 4. Check Business Entity Requirement
   if (program.applicability?.requiresBusinessEntity) {
     const isStrictPersonal = (journey === 'car' && applicant.vehicleBuyerType === 'individual' && applicant.vehicleUsage === 'personal') ||
-                             journey === 'home_purchase' ||
-                             journey === 'home_construction';
+                            (applicant.generalApplicantType === 'individual' && !applicant.legalStructure);
+
     if (isStrictPersonal) {
       return {
         status: 'NOT_APPLICABLE',
         reason: {
-          fr: "Non applicable : ce mécanisme finance exclusivement les entreprises et investissements professionnels.",
-          ar: "غير مطابق : هذه الآلية تمول حصراً المشاريع المهنية والشركات."
+          fr: "Dispositif réservé aux structures professionnelles ou personnes morales immatriculées.",
+          ar: "آلية مخصصة حصراً للهياكل المهنية أو الشركات المسجلة بالسجل الوطني للمؤسسات."
         }
       };
     }
   }
 
-  // 5. Check First Property Requirement
-  if (program.applicability?.isFirstPropertyOnly) {
-    if (applicant.isFirstPropertyPurchase === false) {
-      return {
-        status: 'NOT_APPLICABLE',
-        reason: {
-          fr: "Non applicable : réservé exclusivement aux primo-accédants (première acquisition résidentielle).",
-          ar: "غير مطابق : مخصص حصراً للمسكن الأول (عدم امتلاك مسكن سابق)."
-        }
-      };
-    }
-  }
-
-  // 6. Check Housing Intent
-  const isHousingProgram = (program.purposes.length === 1 && (program.purposes[0] === 'first_home' || program.purposes[0] === 'home_construction')) ||
-    (program.purposes.every(p => p === 'first_home' || p === 'home_construction'));
-
-  if (isHousingProgram) {
-    const isHousingIntent = journey === 'home_purchase' || journey === 'home_construction' ||
-      purpose === 'first_home' || purpose === 'home_construction';
-    if (!isHousingIntent) {
-      return {
-        status: 'NOT_APPLICABLE',
-        reason: {
-          fr: "Non applicable à ce besoin. Les critères publiés concernent exclusivement le financement du logement (achat ou construction).",
-          ar: "غير مطابق لهذا الاحتياج. هذا البرنامج مخصص حصراً لتمويل السكن (اقتناء أو بناء مسكن)."
-        }
-      };
-    }
-  }
-
-  // 7. Check Personal vs Corporate Journey separation
-  const isPersonalJourney = journey === 'home_purchase' || journey === 'home_construction' ||
-    (journey === 'car' && applicant.vehicleBuyerType === 'individual' && applicant.vehicleUsage !== 'professional');
-
-  const isCorporateProgram = program.category === 'bank_loan' && !isHousingProgram && 
-    (program.purposes.includes('creation') || program.purposes.includes('expansion')) &&
-    !program.purposes.includes('vehicle') && !program.purposes.includes('first_home');
-
-  if (isPersonalJourney && isCorporateProgram) {
+  // 5. Check First Property Only Requirement
+  if (program.applicability?.isFirstPropertyOnly && applicant.isFirstPropertyPurchase === false) {
     return {
       status: 'NOT_APPLICABLE',
       reason: {
-        fr: "Non applicable : ce mécanisme finance exclusivement les entreprises et investissements professionnels (hors dépenses personnelles ou logement).",
-        ar: "غير مطابق : هذه الآلية تمول حصراً المشاريع المهنية والشركات (دون النفقات الشخصية أو السكن)."
+        fr: "Non applicable : réservé exclusivement à l'acquisition d'un premier logement.",
+        ar: "غير مطابق : مخصص حصراً لاقتناء المسكن الأول للأسرة."
       }
     };
+  }
+
+  // 6. Check Purpose alignment with program.purposes
+  if (purpose && !program.purposes.includes(purpose)) {
+    const isMatchingJourney = journey && program.applicability?.supportedJourneys?.includes(journey);
+    if (!isMatchingJourney) {
+      return {
+        status: 'NOT_APPLICABLE',
+        reason: {
+          fr: `Objet non pris en charge (${purpose}) : objets admis (${program.purposes.join(', ')}).`,
+          ar: `غرض التمويل غير مشمول بهذا البرنامج (${program.purposes.join(', ')}).`
+        }
+      };
+    }
   }
 
   return {
     status: 'APPLICABLE',
     reason: {
-      fr: `Dispositif en adéquation thématique avec votre projet (${program.purposes.join(', ')}).`,
-      ar: `البرنامج متطابق مع طبيعة مشروعكم (${program.purposes.join(', ')}).`
+      fr: "Mécanisme applicable à ce domaine de financement.",
+      ar: "آلية تمويلية مطابقة لمجال التدخل المطلوب."
     }
   };
 }
 
-/**
- * Evaluates application readiness based on profile data, required documents, and verification state.
- */
 export function evaluateApplicationReadiness(
   applicant: ApplicantProfile,
   program: FinancingProgram,
@@ -208,7 +183,6 @@ export function evaluateApplicationReadiness(
       value: `${applicant.financingRequested.toLocaleString('fr-TN')} TND`
     });
   }
-
   if (applicant.userContribution !== undefined) {
     knownFields.push({
       key: 'userContribution',
@@ -216,31 +190,22 @@ export function evaluateApplicationReadiness(
       value: `${applicant.userContribution.toLocaleString('fr-TN')} TND`
     });
   }
-
   if (applicant.location) {
     knownFields.push({
       key: 'location',
-      label: { fr: 'Gouvernorat d’implantation', ar: 'ولاية الانتصاب' },
+      label: { fr: "Gouvernorat d'implantation", ar: 'الولاية' },
       value: applicant.location
     });
   }
-
-  if (applicant.hasHigherEducationDegree !== undefined) {
+  if (applicant.sector) {
     knownFields.push({
-      key: 'hasHigherEducationDegree',
-      label: { fr: 'Diplôme du supérieur', ar: 'شهادة التعليم العالي' },
-      value: applicant.hasHigherEducationDegree ? 'Oui' : 'Non'
+      key: 'sector',
+      label: { fr: "Secteur d'activité", ar: 'قطاع النشاط' },
+      value: applicant.sector
     });
   }
 
-  if (applicant.hasStartupActLabel !== undefined) {
-    knownFields.push({
-      key: 'hasStartupActLabel',
-      label: { fr: 'Label Startup Act', ar: 'علامة مؤسسة ناشئة' },
-      value: applicant.hasStartupActLabel ? 'Oui' : 'Non'
-    });
-  }
-
+  // Missing fields from rules evaluated to UNKNOWN
   for (const rule of ruleEvaluations) {
     if (rule.status === 'UNKNOWN') {
       missingApplicantFields.push({
@@ -250,6 +215,7 @@ export function evaluateApplicationReadiness(
     }
   }
 
+  // Unverified/Lender confirmation fields from program verification
   if (program.verification.unverifiedFields && program.verification.unverifiedFields.length > 0) {
     for (const field of program.verification.unverifiedFields) {
       lenderConfirmationFields.push({
@@ -278,8 +244,8 @@ export function evaluateApplicationReadiness(
 /**
  * Main compatibility evaluator combining the 4 independent dimensions:
  * 1. Applicability Gate
- * 2. Rule Evaluations (Critical vs Informational, Current vs Historical)
- * 3. Financial Compatibility (Ceilings, Ratios, Cost thresholds)
+ * 2. Rule Evaluations (Critical vs Informational)
+ * 3. Financial Compatibility
  * 4. Evidence Confidence
  */
 export function evaluateProgramCompatibility(
@@ -292,14 +258,11 @@ export function evaluateProgramCompatibility(
   const needsVerification: MatchReason['needsVerification'] = [];
   const ruleEvaluations: RuleEvaluation[] = [];
 
-  const canonical = getCanonicalProgram(program.id);
-  const operationalStatus = getProgramOperationalStatus(program.id);
-  const officialSimulator = getOfficialSimulator(program.id);
-
   // =========================================================================
   // DIMENSION 1 — APPLICABILITY GATE
   // =========================================================================
   const applicability = evaluateApplicability(applicant, program);
+  const officialSimulator = getOfficialSimulator(program.id);
 
   if (applicability.status === 'NOT_APPLICABLE') {
     potentialIssues.push(applicability.reason);
@@ -312,6 +275,7 @@ export function evaluateProgramCompatibility(
       program,
       provider,
       status: 'NOT_APPLICABLE',
+      eligibilityOutcome: 'INCOMPATIBLE_ON_DOCUMENTED_RULES',
       applicabilityStatus: 'NOT_APPLICABLE',
       applicabilityReason: applicability.reason,
       ruleEvaluations: [],
@@ -325,7 +289,7 @@ export function evaluateProgramCompatibility(
         status: program.verification.status,
         isOutdated: program.verification.status === 'OUTDATED',
         hasUnverifiedFields: program.verification.unverifiedFields.length > 0,
-        confidenceScore: 'LOW',
+        confidenceScore: program.verification.status === 'VERIFIED' ? 'HIGH' : 'LOW',
         notes: program.verification.notes
       },
       reasons: {
@@ -346,17 +310,25 @@ export function evaluateProgramCompatibility(
     };
   }
 
+  // If applicability is unknown / unverified
   if (applicability.status === 'UNKNOWN') {
     needsVerification.push(applicability.reason);
   } else {
     matchedBecause.push(applicability.reason);
   }
 
+  // Check for Full Financing ("financement intégral") request without verified terms
+  const isFullFinancingCase = Boolean(
+    (applicant as any).isFullFinancingRequested || 
+    (applicant.userContribution === 0 && applicant.financingRequested && applicant.totalProjectCost && applicant.financingRequested >= applicant.totalProjectCost) ||
+    (applicant.projectDescription && applicant.projectDescription.toLowerCase().includes('financement intégral'))
+  );
+
   // =========================================================================
   // DIMENSION 2 — CRITERIA & RULE EVALUATIONS
   // =========================================================================
 
-  // Rule: Degree requirement (BTS Diplômés)
+  // Rule: Degree requirement
   if (program.eligibilityCriteria.requiresDegree) {
     if (applicant.hasHigherEducationDegree === true) {
       ruleEvaluations.push({
@@ -406,8 +378,8 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // Rule: Startup Act Label requirement (Startup Guarantee Fund / Smart Capital)
-  if (program.eligibilityCriteria.requiresStartupLabel || program.id === 'startup_act_bourse') {
+  // Rule: Startup Act Label requirement
+  if (program.eligibilityCriteria.requiresStartupLabel) {
     if (applicant.hasStartupActLabel === true) {
       ruleEvaluations.push({
         ruleId: 'requiresStartupLabel',
@@ -445,8 +417,8 @@ export function evaluateProgramCompatibility(
         criticality: 'CRITICAL',
         status: 'UNKNOWN',
         explanation: {
-          fr: "Label Startup Act à confirmer.",
-          ar: "علامة مؤسسة ناشئة قيد التثبت."
+          fr: "Statut du label Startup Act à confirmer.",
+          ar: "يرجى تحديد صفة الحصول على علامة مؤسسة ناشئة."
         }
       });
       needsVerification.push({
@@ -456,64 +428,206 @@ export function evaluateProgramCompatibility(
     }
   }
 
-  // Rule: Legal Structure requirement
-  if (program.eligibilityCriteria.allowedLegalForms && applicant.legalStructure) {
-    if (program.eligibilityCriteria.allowedLegalForms.includes(applicant.legalStructure)) {
-      matchedBecause.push({
-        fr: `Forme juridique (${applicant.legalStructure.toUpperCase()}) éligible.`,
-        ar: `الصيغة القانونية (${applicant.legalStructure.toUpperCase()}) متطابقة مع الشروط.`
-      });
-    } else {
+  // Rule: First Property Purchase requirement
+  if (program.applicability?.isFirstPropertyOnly) {
+    if (applicant.isFirstPropertyPurchase === true) {
       ruleEvaluations.push({
-        ruleId: 'legalStructure',
-        label: { fr: "Forme juridique", ar: "الشكل القانوني" },
+        ruleId: 'isFirstPropertyPurchase',
+        label: { fr: "Première acquisition résidentielle", ar: "المسكن الأول" },
+        criticality: 'CRITICAL',
+        status: 'PASS',
+        explanation: {
+          fr: "Condition de primo-accédant (premier logement) satisfaite.",
+          ar: "شرط عدم ملكية مسكن سابق متوفر."
+        }
+      });
+      matchedBecause.push({
+        fr: "Éligible au titre du premier logement.",
+        ar: "مؤهل بعنوان اقتناء المسكن الأول."
+      });
+    } else if (applicant.isFirstPropertyPurchase === false) {
+      ruleEvaluations.push({
+        ruleId: 'isFirstPropertyPurchase',
+        label: { fr: "Première acquisition résidentielle", ar: "المسكن الأول" },
         criticality: 'CRITICAL',
         status: 'FAIL',
         explanation: {
-          fr: `Forme juridique (${applicant.legalStructure}) non admise pour ce guichet. Formes admises : ${program.eligibilityCriteria.allowedLegalForms.join(', ')}.`,
-          ar: `الشكل القانوني (${applicant.legalStructure}) غير مقبول لهذا البرنامج. الأشكال المقبولة : ${program.eligibilityCriteria.allowedLegalForms.join(', ')}.`
+          fr: "Réservé exclusivement aux personnes ne possédant aucun logement.",
+          ar: "مخصص حصراً لمن لا يملك أي مسكن سابق."
         }
       });
       potentialIssues.push({
-        fr: `Forme juridique actuelle (${applicant.legalStructure}) non admise pour ce dispositif.`,
-        ar: `الشكل القانوني الحالي للمؤسسة غير مطابق لشروط هذا البرنامج.`
+        fr: "Ce dispositif est strictement réservé aux primo-accédants.",
+        ar: "هذا البرنامج مخصص حصراً لاقتناء المسكن الأول."
+      });
+    } else {
+      ruleEvaluations.push({
+        ruleId: 'isFirstPropertyPurchase',
+        label: { fr: "Première acquisition résidentielle", ar: "المسكن الأول" },
+        criticality: 'CRITICAL',
+        status: 'UNKNOWN',
+        explanation: {
+          fr: "Vérifier l'absence de propriété immobilière antérieure.",
+          ar: "التثبت من عدم ملكية مسكن سابق."
+        }
+      });
+      needsVerification.push({
+        fr: formatVerificationNeed('USER_INPUT_REQUIRED', 'exactIncomeScaleCeiling', 'fr'),
+        ar: formatVerificationNeed('USER_INPUT_REQUIRED', 'exactIncomeScaleCeiling', 'ar')
       });
     }
   }
 
-  // Rule: Sector & Exclusion checks (e.g. BFPME exclusions)
-  if (program.id === 'bfpme_creation' || program.id === 'bfpme_extension') {
-    if (applicant.sector === 'hotels_accommodation') {
+  // Specific Sector Exclusions & Exceptions for BFPME CMLT
+  if (program.id === 'bfpme_creation') {
+    const isResidentialDeveloper = 
+      applicant.sector === 'real_estate' || 
+      (applicant as any).subSector === 'residential_real_estate_promotion' ||
+      (applicant.projectDescription && applicant.projectDescription.toLowerCase().includes('promotion immobilière résidentielle')) ||
+      (applicant.projectDescription && applicant.projectDescription.toLowerCase().includes('promoteur immobilier'));
+
+    if (isResidentialDeveloper) {
       ruleEvaluations.push({
-        ruleId: 'sectorExclusionHotel',
-        label: { fr: "Exclusion hôtellerie classique", ar: "استثناء الفندقة الكلاسيكية" },
-        criticality: 'CRITICAL',
-        status: 'FAIL',
-        explanation: {
-          fr: "L'hôtellerie d'hébergement classique est formellement exclue du financement BFPME.",
-          ar: "الفندقة الكلاسيكية مستثناة رسمياً من تمويل بنك BFPME."
-        }
-      });
-      potentialIssues.push({
-        fr: "Activité d'hôtellerie classique exclue des financements BFPME.",
-        ar: "نشاط الفندقة الكلاسيكية مستثنى من تمويلات BFPME."
-      });
-    } else if (applicant.sector === 'real_estate_development') {
-      ruleEvaluations.push({
-        ruleId: 'sectorExclusionRealEstate',
+        ruleId: 'bfpmeResidentialDeveloperExclusion',
         label: { fr: "Exclusion promotion immobilière résidentielle", ar: "استثناء البعث العقاري السكني" },
         criticality: 'CRITICAL',
         status: 'FAIL',
         explanation: {
-          fr: "La promotion immobilière résidentielle est formellement exclue du financement BFPME.",
-          ar: "البعث العقاري السكني مستثنى رسمياً من تمويل بنك BFPME."
+          fr: "La promotion immobilière résidentielle est expressément exclue du périmètre BFPME.",
+          ar: "البعث العقاري السكني مستثنى صراحة من نطاق تدخل بنك تمويل المؤسسات الصغرى والمتوسطة."
         }
       });
       potentialIssues.push({
-        fr: "Activité de promotion immobilière résidentielle exclue des financements BFPME.",
-        ar: "نشاط البعث العقاري السكني مستثنى من تمويلات BFPME."
+        fr: "Promotion immobilière résidentielle exclue de l'intervention BFPME.",
+        ar: "البعث العقاري السكني غير مؤهل لتمويل BFPME."
+      });
+    } else if (applicant.sector === 'tourism') {
+      const isRuralGuesthouseException = Boolean(
+        (applicant as any).subSector === 'rural_gite' ||
+        (applicant as any).subSector === 'guesthouse' ||
+        (applicant.projectDescription && (
+          applicant.projectDescription.toLowerCase().includes('gîte rural') ||
+          applicant.projectDescription.toLowerCase().includes('gite') ||
+          applicant.projectDescription.toLowerCase().includes('maison d’hôtes') ||
+          applicant.projectDescription.toLowerCase().includes("maison d'hôtes") ||
+          applicant.projectDescription.toLowerCase().includes('guesthouse')
+        ))
+      );
+
+      if (isRuralGuesthouseException) {
+        ruleEvaluations.push({
+          ruleId: 'bfpmeTourismGuesthouseException',
+          label: { fr: "Exception gîte rural / maison d'hôtes", ar: "استثناء دار الضيافة والإقامة الريفية" },
+          criticality: 'CRITICAL',
+          status: 'PASS',
+          explanation: {
+            fr: "Exception admise : les gîtes ruraux et maisons d'hôtes sont expressément éligibles au financement BFPME.",
+            ar: "استثناء مقبول : دور الضيافة والإقامات الريفية مؤهلة صراحة لتمويل BFPME."
+          }
+        });
+        matchedBecause.push({
+          fr: "Exception sectorielle BFPME : éligible au titre des maisons d'hôtes et gîtes ruraux.",
+          ar: "استثناء قطاعي مقبول لدى BFPME بعنوان دور الضيافة والإقامات الريفية."
+        });
+      } else {
+        ruleEvaluations.push({
+          ruleId: 'bfpmeAccommodationTourismExclusion',
+          label: { fr: "Exclusion tourisme hôtelier classique", ar: "استثناء السياحة الفندقية الكلاسيكية" },
+          criticality: 'CRITICAL',
+          status: 'FAIL',
+          explanation: {
+            fr: "Le tourisme d'hébergement hôtelier classique est exclu de l'intervention BFPME (seuls les gîtes ruraux et maisons d'hôtes bénéficient d'une exception).",
+            ar: "السياحة الفندقية الكلاسيكية مستثناة من BFPME (تستثنى دور الضيافة والإقامات الريفية فقط)."
+          }
+        });
+        potentialIssues.push({
+          fr: "Tourisme d'hébergement classique exclu de l'intervention BFPME.",
+          ar: "السياحة الفندقية الكلاسيكية غير مؤهلة لتمويل BFPME."
+        });
+      }
+    }
+  }
+
+  // Rule: Sector compatibility (General)
+  const isIndividualJourney = applicant.journey === 'home_purchase' || 
+                              applicant.journey === 'home_construction' || 
+                              (applicant.journey === 'car' && applicant.vehicleBuyerType !== 'business');
+
+  if (program.eligibilityCriteria.sectors && program.eligibilityCriteria.sectors.length > 0 && !isIndividualJourney && program.id !== 'bfpme_creation') {
+    if (applicant.sector) {
+      if (program.eligibilityCriteria.sectors.includes(applicant.sector)) {
+        ruleEvaluations.push({
+          ruleId: 'sector',
+          label: { fr: "Secteur d'activité admissible", ar: "قطاع النشاط المؤهل" },
+          criticality: 'CRITICAL',
+          status: 'PASS',
+          explanation: {
+            fr: `Secteur "${applicant.sector}" éligible pour ce mécanisme.`,
+            ar: `القطاع "${applicant.sector}" مؤهل للاستفادة من هذا البرنامج.`
+          }
+        });
+        matchedBecause.push({
+          fr: `Secteur d'activité (${applicant.sector}) éligible.`,
+          ar: `قطاع النشاط (${applicant.sector}) مؤهل.`
+        });
+      } else {
+        ruleEvaluations.push({
+          ruleId: 'sector',
+          label: { fr: "Secteur d'activité admissible", ar: "قطاع النشاط المؤهل" },
+          criticality: 'CRITICAL',
+          status: 'FAIL',
+          explanation: {
+            fr: `Secteur "${applicant.sector}" non admis (secteurs admis : ${program.eligibilityCriteria.sectors.join(', ')}).`,
+            ar: `القطاع "${applicant.sector}" غير مشمول في هذا البرنامج.`
+          }
+        });
+        potentialIssues.push({
+          fr: `Secteur non couvert par les priorités de ce mécanisme.`,
+          ar: `القطاع غير مدرج ضمن أولويات هذا البرنامج.`
+        });
+      }
+    } else {
+      ruleEvaluations.push({
+        ruleId: 'sector',
+        label: { fr: "Secteur d'activité admissible", ar: "قطاع النشاط المؤهل" },
+        criticality: 'IMPORTANT',
+        status: 'UNKNOWN',
+        explanation: {
+          fr: "Secteur d'activité à préciser pour confirmer l'admissibilité.",
+          ar: "يرجى تحديد قطاع النشاط للتأكد من الأهلية."
+        }
+      });
+      needsVerification.push({
+        fr: formatVerificationNeed('USER_INPUT_REQUIRED', 'eligibilityCriteria', 'fr'),
+        ar: formatVerificationNeed('USER_INPUT_REQUIRED', 'eligibilityCriteria', 'ar')
       });
     }
+  }
+
+  // Rule: Income Scale for Housing (Premier Logement / FOPROLOS)
+  if (applicant.monthlyIncomeRange && (program.id === 'premier_logement' || program.id === 'foprolos_construction' || program.purposes.includes('first_home'))) {
+    matchedBecause.push({
+      fr: `Catégorie de revenu mensuel (${applicant.monthlyIncomeRange}) pour classe moyenne compatible avec le barème d'éligibilité du logement.`,
+      ar: `شريحة الدخل الشهري للطبقة المتوسطة متطابقة مع جدول المداخيل المنشور.`
+    });
+  }
+
+  // Rule: Vehicle purpose matching for Car journey
+  if (applicant.purpose === 'vehicle' || applicant.journey === 'car') {
+    if (program.purposes.includes('vehicle')) {
+      matchedBecause.push({
+        fr: "Acquisition de véhicule compatible avec les conditions de ce crédit.",
+        ar: "اقتناء عربة متطابق مع شروط هذا القرض."
+      });
+    }
+  }
+
+  // Rule: Islamic Finance Structure Preference
+  if (applicant.structurePreference === 'islamic' && (program.category === 'islamic_finance' || program.rateType === 'profit_margin')) {
+    matchedBecause.push({
+      fr: "Structure de financement islamique (Mourabaha) conforme à votre préférence.",
+      ar: "صيغة تمويل إسلامي (مرابحة) متطابقة مع اختياركم."
+    });
   }
 
   // Rule: Regional Development Zone (ZDR) bonus
@@ -533,109 +647,170 @@ export function evaluateProgramCompatibility(
   let amountStatus: RuleEvaluation['status'] = 'PASS';
   let contributionStatus: RuleEvaluation['status'] = 'PASS';
 
-  // 1. Requested financing amount vs Program limits
-  if (applicant.financingRequested !== undefined && applicant.financingRequested > 0) {
-    // BFPME CMLT Loan Ceiling: 2,500,000 TND (verified current)
-    if (program.id === 'bfpme_creation' && applicant.financingRequested > 2500000) {
+  // Specific BFPME CMLT Investment Cost & Financing Ratio Checks
+  if (program.id === 'bfpme_creation') {
+    // 1. Min project cost boundary check: 150,000 TND
+    if (applicant.totalProjectCost !== undefined) {
+      if (applicant.totalProjectCost < 150000) {
+        amountStatus = 'FAIL';
+        const detail = {
+          fr: `Coût total du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) inférieur au seuil minimum d'investissement BFPME de 150 000 TND.`,
+          ar: `كلفة المشروع الجملية (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) أقل من الحد الأدنى للاستثمار BFPME (150 ألف دينار).`
+        };
+        ruleEvaluations.push({
+          ruleId: 'bfpmeMinProjectCost',
+          label: { fr: "Seuil minimum d'investissement BFPME (150 000 TND)", ar: "الحد الأدنى للاستثمار (150 ألف دينار)" },
+          criticality: 'CRITICAL',
+          status: 'FAIL',
+          explanation: detail
+        });
+        financialDetails.push(detail);
+        potentialIssues.push(detail);
+      } else if (applicant.totalProjectCost > 15000000) {
+        // 2. Max project cost boundary check: 15,000,000 TND
+        amountStatus = 'FAIL';
+        const detail = {
+          fr: `Coût total du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) dépasse le plafond d'investissement BFPME de 15 000 000 TND.`,
+          ar: `كلفة المشروع الجملية (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) تتجاوز سقف الاستثمار BFPME (15 مليون دينار).`
+        };
+        ruleEvaluations.push({
+          ruleId: 'bfpmeMaxProjectCost',
+          label: { fr: "Plafond d'investissement BFPME (15 000 000 TND)", ar: "سقف الاستثمار BFPME (15 مليون دينار)" },
+          criticality: 'CRITICAL',
+          status: 'FAIL',
+          explanation: detail
+        });
+        financialDetails.push(detail);
+        potentialIssues.push(detail);
+      } else {
+        ruleEvaluations.push({
+          ruleId: 'bfpmeProjectCostRange',
+          label: { fr: "Fourchette d'investissement BFPME (150k - 15M TND)", ar: "نطاق الاستثمار BFPME (150 ألف - 15 مليون د)" },
+          criticality: 'CRITICAL',
+          status: 'PASS',
+          explanation: {
+            fr: `Coût total du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) dans la fourchette d'investissement BFPME.`,
+            ar: `كلفة المشروع الجملية (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) ضمن نطاق الاستثمار المؤهل لـ BFPME.`
+          }
+        });
+        matchedBecause.push({
+          fr: `Investissement total (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) conforme aux normes CMLT BFPME (150k - 15M TND).`,
+          ar: `كلفة الاستثمار الجملية متوافقة مع شروط BFPME (150 ألف - 15 مليون د).`
+        });
+      }
+    }
+
+    // 3. Absolute CMLT Ceiling: 2,500,000 TND
+    if (applicant.financingRequested !== undefined && applicant.financingRequested > 2500000) {
       amountStatus = 'FAIL';
       const detail = {
-        fr: `Le montant de crédit CMLT demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dépasse le plafond d'intervention BFPME de 2 500 000 TND.`,
-        ar: `مبلغ قرض CMLT المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يتجاوز سقف تدخل بنك BFPME البالغ 2.5 مليون دينار.`
+        fr: `Montant CMLT demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dépasse le plafond réglementaire BFPME de 2 500 000 TND.`,
+        ar: `مبلغ قرض CMLT المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يتجاوز السقف القانوني لـ BFPME (2.5 مليون دينار).`
       };
-      financialDetails.push(detail);
-      potentialIssues.push(detail);
-    } else if (applicant.financingRequested > program.maxAmount) {
-      amountStatus = 'FAIL';
-      const detail = {
-        fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dépasse le plafond publié (${program.maxAmount.toLocaleString('fr-TN')} TND).`,
-        ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يتجاوز السقف المنشور (${program.maxAmount.toLocaleString('fr-TN')} د).`
-      };
-      financialDetails.push(detail);
-      potentialIssues.push(detail);
-    } else if (applicant.financingRequested < program.minAmount) {
-      amountStatus = 'FAIL';
-      const detail = {
-        fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) inférieur au seuil minimal (${program.minAmount.toLocaleString('fr-TN')} TND).`,
-        ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) أقل من الحد الأدنى (${program.minAmount.toLocaleString('fr-TN')} د).`
-      };
-      financialDetails.push(detail);
-      potentialIssues.push(detail);
-    } else {
-      matchedBecause.push({
-        fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dans la fourchette d'intervention (${program.minAmount.toLocaleString('fr-TN')} - ${program.maxAmount.toLocaleString('fr-TN')} TND).`,
-        ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يقع ضمن السقف المتاح للبرنامج.`
+      ruleEvaluations.push({
+        ruleId: 'bfpmeMaxCmltCeiling',
+        label: { fr: "Plafond CMLT BFPME (2 500 000 TND)", ar: "سقف قرض CMLT (2.5 مليون دينار)" },
+        criticality: 'CRITICAL',
+        status: 'FAIL',
+        explanation: detail
       });
+      financialDetails.push(detail);
+      potentialIssues.push(detail);
+    }
+
+    // 4. Percentage Ceiling: Max 65% of investment cost
+    if (
+      applicant.financingRequested !== undefined && 
+      applicant.totalProjectCost !== undefined && 
+      applicant.totalProjectCost > 0
+    ) {
+      const financingRatio = (applicant.financingRequested / applicant.totalProjectCost) * 100;
+      if (isFullFinancingCase) {
+        // Full financing is an unresolved term in Mizen: do not evaluate as a simple calculation failure
+        ruleEvaluations.push({
+          ruleId: 'bfpmeUnresolvedFullFinancing',
+          label: { fr: "Modalité de financement intégral", ar: "شروط التمويل الشامل" },
+          criticality: 'CRITICAL',
+          status: 'UNKNOWN',
+          explanation: {
+            fr: "La notion de 'Financement intégral' ne dispose pas de preuve primaire vérifiée : statut non résolu.",
+            ar: "مفهوم 'التمويل الشامل' لا يتوفر على سند رسمي موثق : حالة غير مؤكدة."
+          }
+        });
+      } else if (financingRatio > 65.01) {
+        amountStatus = 'FAIL';
+        const detail = {
+          fr: `Quotité de crédit CMLT demandée (${Math.round(financingRatio)}%) dépasse le plafond légal de 65% du coût d'investissement.`,
+          ar: `نسبة تمويل CMLT المطلوبة (${Math.round(financingRatio)}%) تتجاوز السقف القانوني المحدد بـ 65% من كلفة الاستثمار.`
+        };
+        ruleEvaluations.push({
+          ruleId: 'bfpmeCmltRatioCeiling',
+          label: { fr: "Plafond CMLT 65% de l'investissement", ar: "سقف التمويل 65% من كلفة الاستثمار" },
+          criticality: 'CRITICAL',
+          status: 'FAIL',
+          explanation: detail
+        });
+        financialDetails.push(detail);
+        potentialIssues.push(detail);
+      } else if (applicant.financingRequested <= 2500000 && applicant.totalProjectCost >= 150000 && applicant.totalProjectCost <= 15000000) {
+        ruleEvaluations.push({
+          ruleId: 'bfpmeCmltRatioCeiling',
+          label: { fr: "Plafond CMLT 65% de l'investissement", ar: "سقف التمويل 65% من كلفة الاستثمار" },
+          criticality: 'CRITICAL',
+          status: 'PASS',
+          explanation: {
+            fr: `Quotité CMLT (${Math.round(financingRatio)}%) conforme au plafond légal de 65%.`,
+            ar: `نسبة تمويل CMLT (${Math.round(financingRatio)}%) مطابقة للسقف القانوني 65%.`
+          }
+        });
+      }
     }
   } else {
-    amountStatus = 'UNKNOWN';
-  }
-
-  // 2. Project Cost Range Checks (e.g. BFPME 150k - 15m TND; FGJC max 500k TND)
-  if (applicant.totalProjectCost !== undefined && applicant.totalProjectCost > 0) {
-    if (program.id === 'bfpme_creation') {
-      if (applicant.totalProjectCost > 15000000) {
+    // General amount checks for other programs
+    if (applicant.financingRequested !== undefined && applicant.financingRequested > 0) {
+      if (applicant.financingRequested > program.maxAmount) {
         amountStatus = 'FAIL';
         const detail = {
-          fr: `Le coût d'investissement total du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) dépasse le plafond BFPME de 15 000 000 TND.`,
-          ar: `الكلفة الاستثمارية الجملية للمشروع (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) تتجاوز سقف BFPME البالغ 15 مليون دينار.`
+          fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dépasse le plafond publié (${program.maxAmount.toLocaleString('fr-TN')} TND).`,
+          ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يتجاوز السقف المنشور (${program.maxAmount.toLocaleString('fr-TN')} د).`
         };
         financialDetails.push(detail);
         potentialIssues.push(detail);
-      } else if (applicant.totalProjectCost < 150000) {
+      } else if (applicant.financingRequested < program.minAmount) {
         amountStatus = 'FAIL';
         const detail = {
-          fr: `Le coût d'investissement total du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) est inférieur au seuil minimal BFPME de 150 000 TND.`,
-          ar: `الكلفة الاستثمارية الجملية للمشروع (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) أقل من الحد الأدنى لـ BFPME البالغ 150 ألف دينار.`
-        };
-        financialDetails.push(detail);
-        potentialIssues.push(detail);
-      }
-
-      // 65% CMLT Ceiling ratio check
-      if (applicant.financingRequested !== undefined && applicant.financingRequested > 0) {
-        const cmltRatio = applicant.financingRequested / applicant.totalProjectCost;
-        if (cmltRatio > 0.65) {
-          amountStatus = 'FAIL';
-          const detail = {
-            fr: `Le crédit CMLT demandé (${Math.round(cmltRatio * 100)}% du coût total) dépasse le plafond réglementaire de 65% de l'investissement.`,
-            ar: `قرض CMLT المطلوب (${Math.round(cmltRatio * 100)}% من كلفة المشروع) يتجاوز السقف القانوني المحدد بـ 65%.`
-          };
-          financialDetails.push(detail);
-          potentialIssues.push(detail);
-        }
-      }
-    }
-
-    // SOTUGAR FGJC (Young Creator): Max 500,000 TND project cost
-    if (program.id === 'sotugar_fgjc' && applicant.totalProjectCost > 500000) {
-      amountStatus = 'FAIL';
-      const detail = {
-        fr: `Le coût du projet (${applicant.totalProjectCost.toLocaleString('fr-TN')} TND) dépasse le plafond FGJC de 500 000 TND.`,
-        ar: `كلفة المشروع (${applicant.totalProjectCost.toLocaleString('fr-TN')} د) تتجاوز سقف صندوق الباعثين الشبان البالغ 500 ألف دينار.`
-      };
-      financialDetails.push(detail);
-      potentialIssues.push(detail);
-    }
-  }
-
-  // 3. Own contribution check (only when verified rule exists and not project-dependent)
-  if (applicant.userContribution !== undefined && applicant.totalProjectCost && applicant.totalProjectCost > 0) {
-    if (program.minContributionPercent !== undefined && program.minContributionPercent > 0) {
-      const calculatedContributionPercent = (applicant.userContribution / applicant.totalProjectCost) * 100;
-      if (calculatedContributionPercent < program.minContributionPercent) {
-        contributionStatus = 'FAIL';
-        const detail = {
-          fr: `Apport propre déclaré (${Math.round(calculatedContributionPercent)}%) inférieur au minimum réglementaire de ${program.minContributionPercent}%.`,
-          ar: `التمويل الذاتي المصرح (${Math.round(calculatedContributionPercent)}%) أقل من النسبة المشروطة (${program.minContributionPercent}%).`
+          fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) inférieur au seuil minimal (${program.minAmount.toLocaleString('fr-TN')} TND).`,
+          ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) أقل من الحد الأدنى (${program.minAmount.toLocaleString('fr-TN')} د).`
         };
         financialDetails.push(detail);
         potentialIssues.push(detail);
       } else {
         matchedBecause.push({
-          fr: `Apport personnel (${Math.round(calculatedContributionPercent)}%) conforme à l'exigence minimale de ${program.minContributionPercent}%.`,
-          ar: `التمويل الذاتي (${Math.round(calculatedContributionPercent)}%) يستجيب للنسبة المطلوبة (${program.minContributionPercent}%).`
+          fr: `Montant demandé (${applicant.financingRequested.toLocaleString('fr-TN')} TND) dans la fourchette d'intervention (${program.minAmount.toLocaleString('fr-TN')} - ${program.maxAmount.toLocaleString('fr-TN')} TND).`,
+          ar: `المبلغ المطلوب (${applicant.financingRequested.toLocaleString('fr-TN')} د) يقع ضمن السقف المتاح للبرنامج.`
         });
       }
+    } else {
+      amountStatus = 'UNKNOWN';
+    }
+  }
+
+  // Own contribution check
+  if (applicant.userContribution !== undefined && applicant.totalProjectCost && applicant.totalProjectCost > 0) {
+    const calculatedContributionPercent = (applicant.userContribution / applicant.totalProjectCost) * 100;
+    if (calculatedContributionPercent < program.minContributionPercent && !isFullFinancingCase) {
+      contributionStatus = 'FAIL';
+      const detail = {
+        fr: `Apport propre déclaré (${Math.round(calculatedContributionPercent)}%) inférieur au minimum réglementaire de ${program.minContributionPercent}%.`,
+        ar: `التمويل الذاتي المصرح (${Math.round(calculatedContributionPercent)}%) أقل من النسبة المشروطة (${program.minContributionPercent}%).`
+      };
+      financialDetails.push(detail);
+      potentialIssues.push(detail);
+    } else if (!isFullFinancingCase) {
+      matchedBecause.push({
+        fr: `Apport personnel (${Math.round(calculatedContributionPercent)}%) conforme à l'exigence minimale de ${program.minContributionPercent}%.`,
+        ar: `التمويل الذاتي (${Math.round(calculatedContributionPercent)}%) يستجيب للنسبة المطلوبة (${program.minContributionPercent}%).`
+      });
     }
   }
 
@@ -672,8 +847,6 @@ export function evaluateProgramCompatibility(
   // =========================================================================
   const isOutdated = program.verification.status === 'OUTDATED';
   const isUnverifiedEvidence = program.verification.status === 'UNVERIFIED';
-  const isPartiallyVerified = program.verification.status === 'PARTIALLY_VERIFIED';
-  const isHistorical = program.verification.status === 'VERIFIED_HISTORICAL' || canonical?.ruleStatus === 'VERIFIED_HISTORICAL';
 
   if (program.verification.unverifiedFields && program.verification.unverifiedFields.length > 0) {
     needsVerification.push({
@@ -682,24 +855,11 @@ export function evaluateProgramCompatibility(
     });
   }
 
-  // Strict Evidence Confidence Rule:
-  // VERIFIED_CURRENT -> potentially HIGH
-  // PARTIALLY_VERIFIED -> maximum MEDIUM (NEVER HIGH)
-  // VERIFIED_HISTORICAL / UNVERIFIED / OUTDATED / UNKNOWN -> LOW
-  const confidenceScore: 'HIGH' | 'MEDIUM' | 'LOW' = 
-    isPartiallyVerified 
-      ? 'MEDIUM' 
-      : isHistorical || isOutdated || isUnverifiedEvidence 
-      ? 'LOW' 
-      : program.verification.status === 'VERIFIED' && program.verification.unverifiedFields.length === 0 
-      ? 'HIGH' 
-      : 'MEDIUM';
-
   const evidenceEvaluation: EvidenceEvaluation = {
     status: program.verification.status,
     isOutdated,
     hasUnverifiedFields: program.verification.unverifiedFields.length > 0,
-    confidenceScore,
+    confidenceScore: program.verification.status === 'VERIFIED' ? 'HIGH' : isOutdated ? 'LOW' : 'MEDIUM',
     notes: program.verification.notes
   };
 
@@ -714,27 +874,42 @@ export function evaluateProgramCompatibility(
 
   let status: MatchStatus = 'STRONG_ALIGNMENT';
   let alignmentLevel: MatchReason['alignmentLevel'] = 'strong_alignment';
+  let eligibilityOutcome: EligibilityOutcome = 'DOCUMENTED_ELIGIBILITY';
   let scoreWeight = 800; // Categorical order aid
 
   if (criticalFailures.length > 0 || amountStatus === 'FAIL') {
-    // 1. Critical failure on verified rule: cannot be a match
+    // 1. Critical failure on documented rule: cannot be a match
     status = 'NOT_MATCHED';
     alignmentLevel = 'potential_blockers';
+    eligibilityOutcome = 'INCOMPATIBLE_ON_DOCUMENTED_RULES';
     scoreWeight = 200 + (passedRules.length * 10) - (failedRules.length * 20);
-  } else if (criticalUnknowns.length > 0 || isOutdated || isUnverifiedEvidence || operationalStatus === 'ACTIVE_NOT_CONFIRMED' || isHistorical) {
-    // 2. Critical information unknown or operational acceptance unconfirmed
+  } else if (isFullFinancingCase) {
+    // 2. Full financing without primary proof: returns UNKNOWN_DUE_TO_MISSING_DATA
     status = 'REQUIRES_CONFIRMATION';
     alignmentLevel = 'partial_alignment';
+    eligibilityOutcome = 'UNKNOWN_DUE_TO_MISSING_DATA';
+    scoreWeight = 450;
+    needsVerification.push({
+      fr: "Mention 'Financement intégral' non assimilable à 100% sans apport sans confirmation directe de l'agence bancaire.",
+      ar: "عبارة 'تمويل شامل' لا تعني 100% قرضاً بدون تمويل ذاتي دون تأكيد مباشر من الفرع البنكي."
+    });
+  } else if (criticalUnknowns.length > 0 || isOutdated || isUnverifiedEvidence) {
+    // 3. Critical information unknown or evidence outdated
+    status = 'REQUIRES_CONFIRMATION';
+    alignmentLevel = 'partial_alignment';
+    eligibilityOutcome = 'UNKNOWN';
     scoreWeight = 400 + (passedRules.length * 10) - (unknownRules.length * 5);
   } else if (failedRules.length > 0 || unknownRules.length > 1 || contributionStatus === 'FAIL') {
-    // 3. Potential alignment: main criteria fit, minor points to adjust
+    // 4. Potential alignment: main criteria fit, minor points to adjust
     status = 'POTENTIAL_ALIGNMENT';
     alignmentLevel = 'partial_alignment';
+    eligibilityOutcome = 'POTENTIAL_ELIGIBILITY';
     scoreWeight = 600 + (passedRules.length * 10) - (failedRules.length * 10);
   } else {
-    // 4. Strong verified alignment
+    // 5. Strong verified documented alignment
     status = 'STRONG_ALIGNMENT';
     alignmentLevel = 'strong_alignment';
+    eligibilityOutcome = 'DOCUMENTED_ELIGIBILITY';
     scoreWeight = 800 + (passedRules.length * 10);
   }
 
@@ -744,14 +919,14 @@ export function evaluateProgramCompatibility(
       : status === 'POTENTIAL_ALIGNMENT'
       ? `Adéquation potentielle — critères principaux alignés.`
       : status === 'REQUIRES_CONFIRMATION'
-      ? `Adéquation à confirmer — conditions vérifiées d'après la source officielle; acceptation opérationnelle ou paramètres à confirmer.`
+      ? `Adéquation à confirmer — informations ou conditions préalables à vérifier.`
       : `Critères bloquants identifiés pour ce dispositif.`,
     ar: status === 'STRONG_ALIGNMENT'
       ? `تطابق قوي مع المعايير العامة المنشورة لدى ${provider.acronym}.`
       : status === 'POTENTIAL_ALIGNMENT'
       ? `تطابق محتمل — المعايير الأساسية متوافقة.`
       : status === 'REQUIRES_CONFIRMATION'
-      ? `أهلية تتطلب التأكيد — الشروط موثقة رسمياً ولكن يتطلب التأكيد مع المؤسسة.`
+      ? `أهلية تتطلب التأكيد — معطيات أو شروط قيد التثبت.`
       : `وجود شروط غير متوفرة تعيق الاستفادة من هذا البرنامج.`
   };
 
@@ -764,6 +939,7 @@ export function evaluateProgramCompatibility(
     program,
     provider,
     status,
+    eligibilityOutcome,
     applicabilityStatus: 'APPLICABLE',
     applicabilityReason: applicability.reason,
     ruleEvaluations,

@@ -85,6 +85,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     commerce: { fr: 'Commerce & Distribution', ar: 'التجارة والتوزيع' },
     renewable_energy: { fr: 'Énergies renouvelables', ar: 'الطاقات المتجددة' },
     tourism: { fr: 'Tourisme & Restauration', ar: 'السياحة والإطعام' },
+    real_estate: { fr: 'Immobilier & Promotion', ar: 'العقارات والبعث العقاري' },
+    residential_real_estate_promotion: { fr: 'Promotion immobilière résidentielle', ar: 'البعث العقاري السكني' },
     other: { fr: 'Autre secteur', ar: 'قطاع آخر' }
   };
 

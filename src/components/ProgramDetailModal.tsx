@@ -20,6 +20,7 @@ import { VerificationBadge } from './VerificationBadge';
 import { TrustBadge } from './TrustBadge';
 import { getFieldLabel } from '../utils/verificationLabels';
 import { getOfficialSimulator } from '../knowledge/catalogueAdapter';
+import { CLAIMS_REPOSITORY } from '../knowledge/claimsRepository';
 
 interface ProgramDetailModalProps {
   program: FinancingProgram;
@@ -43,6 +44,7 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
   const t = TRANSLATIONS[language];
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
+  const programClaims = CLAIMS_REPOSITORY.getAllClaims(program.id);
 
   const fetchAiExplanation = async () => {
     setIsLoadingAi(true);
@@ -365,6 +367,64 @@ export const ProgramDetailModal: React.FC<ProgramDetailModalProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Claims & Temporal Provenance Layer */}
+          {programClaims.length > 0 && (
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>{language === 'ar' ? 'سجل المطالبات والمصادر الزمنية' : 'Registre des Revendications & Traçabilité Temporelle'}</span>
+                </h4>
+                <span className="text-[10px] font-semibold text-slate-500">
+                  {programClaims.length} {language === 'ar' ? 'معطيات موثقة' : 'faits enregistrés'}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {programClaims.map(claim => {
+                  const isHistorical = claim.ruleStatus === 'VERIFIED_HISTORICAL' || claim.conflictStatus === 'SUPERSEDED';
+                  return (
+                    <div 
+                      key={claim.claimId} 
+                      className={`p-3 rounded-xl border text-xs ${
+                        isHistorical 
+                          ? 'bg-amber-50/60 border-amber-200/80 text-slate-700' 
+                          : 'bg-white border-slate-200 text-slate-900'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                        <span className="font-bold">
+                          {claim.field}: {typeof claim.value === 'object' ? JSON.stringify(claim.value) : String(claim.value)}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                          isHistorical
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
+                          {isHistorical ? (language === 'ar' ? 'أرشيف تاريخي' : 'Historique archivé') : (language === 'ar' ? 'ساري ومؤكد' : 'Vérifié actuel')}
+                        </span>
+                      </div>
+                      {claim.notes && (
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          {claim.notes[language] || claim.notes.fr}
+                        </p>
+                      )}
+                      {claim.supersededReason && (
+                        <p className="text-[10px] text-amber-800 font-medium mt-1">
+                          ↳ {claim.supersededReason}
+                        </p>
+                      )}
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                        <span>Source: {claim.source.title} ({claim.source.publisher})</span>
+                        <span>{claim.retrievalDate}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Realistic Caveats & Delays */}
           <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">

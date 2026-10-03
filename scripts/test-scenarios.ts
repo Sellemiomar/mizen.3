@@ -50,8 +50,8 @@ assert(Boolean(btsDiplomesA?.reasons.matchedBecause.some(m => m.fr.includes('Dip
 // -------------------------------------------------------------
 console.log('\n--- SCENARIO B: Entreprise existante, 250 000 DT à Sfax ---');
 const profileB: ApplicantProfile = {
-  totalProjectCost: 350000,
-  userContribution: 100000,
+  totalProjectCost: 400000,
+  userContribution: 150000,
   financingRequested: 250000,
   purpose: 'expansion',
   sector: 'industry',
@@ -759,18 +759,281 @@ assert(sotugarProd?.category === 'GUARANTEE', 'SOTUGAR is classified as GUARANTE
 assert(sotugarProd?.financialTerms.rate?.type === 'NOT_APPLICABLE', 'SOTUGAR does not charge loan interest rate (NOT_APPLICABLE)');
 
 // -------------------------------------------------------------
-// Scenario Z: Knowledge Integrity & Batch 2 Regression Suite
+// Scenario Z: Claim-Level Knowledge Architecture & Batch 2 Regression Tests
 // -------------------------------------------------------------
-import { runKnowledgeIntegrityTests } from '../tests/knowledgeIntegrity.test';
-const integrityResults = runKnowledgeIntegrityTests();
-if (integrityResults.failed > 0) {
-  allPassed = false;
-}
+console.log('\n--- SCENARIO Z: Architecture Canonique par Revendications & 30 Tests de Non-Régression ---');
+import { CLAIMS_REPOSITORY, INITIAL_CANONICAL_CLAIMS, FinancingClaimsRepository } from '../src/knowledge/claimsRepository';
+import { FinancingClaim } from '../src/types/claims';
+
+// Test 1: New current claim supersedes older conflicting claim
+const repo = new FinancingClaimsRepository();
+const oldClaim = repo.getClaim('claim_bfpme_cmlt_ceiling_amount_historical');
+const currentClaim = repo.getClaim('claim_bfpme_cmlt_ceiling_amount_current');
+assert(oldClaim?.conflictStatus === 'SUPERSEDED', '1. Old conflicting claim is marked SUPERSEDED');
+assert(oldClaim?.supersededByClaimId === 'claim_bfpme_cmlt_ceiling_amount_current', '1. Old claim points to newer claim');
+assert(currentClaim?.conflictStatus === 'NONE' && currentClaim?.ruleStatus === 'VERIFIED_CURRENT', '1. New current claim is active and current');
+
+// Test 2: Historical claim remains queryable
+const historicalClaims = repo.getHistoricalClaims('bfpme_creation');
+assert(historicalClaims.some(c => c.claimId === 'claim_bfpme_cmlt_ceiling_amount_historical'), '2. Historical claim remains queryable in repository');
+
+// Test 3: Historical claim does not appear in current production matching
+const activeClaims = repo.getActiveClaims('bfpme_creation');
+assert(!activeClaims.some(c => c.claimId === 'claim_bfpme_cmlt_ceiling_amount_historical'), '3. Historical claim does not appear in active claims');
+assert(activeClaims.some(c => c.claimId === 'claim_bfpme_cmlt_ceiling_amount_current' && c.value === 2500000), '3. Active claim reflects current 2.5M ceiling');
+
+// Test 4: Institution active does not imply product active
+const bfpmeActiveClaims = repo.getActiveClaims('bfpme_creation');
+const bfpmeOperationalClaim = bfpmeActiveClaims.find(c => c.field === 'minProjectCost');
+assert(bfpmeOperationalClaim?.operationalStatus === 'ACTIVE_NOT_CONFIRMED', '4. Product operational status is ACTIVE_NOT_CONFIRMED despite institution active');
+
+// Test 5: Product active does not imply universal applicability
+assert(bfpmeOperationalClaim?.applicabilityStatus === 'CONDITIONAL', '5. Product applicability is CONDITIONAL, not universal');
+
+// Test 6: Unknown operational status prevents current recommendation
+const fgjcClaims = repo.getAllClaims('sotugar_fgjc');
+const fgjcOperational = fgjcClaims.find(c => c.field === 'projectCostCeiling');
+assert(fgjcOperational?.operationalStatus === 'UNKNOWN', '6. FGJC operational status is explicitly UNKNOWN');
+
+// Test 7: Unknown pricing relationship prevents rate calculation
+const bfpmePricing = calculateFinancingCost(500000, FINANCING_PROGRAMS.find(p => p.id === 'bfpme_creation')!);
+assert(bfpmePricing.canCalculateReliably === false, '7. Unknown pricing relationship prevents automatic rate calculation');
+assert(bfpmePricing.monthlyPayment === undefined, '7. Monthly installment is undefined for unresolved pricing spread');
+
+// Test 8: Unknown full-financing meaning prevents 100% financing calculation
+const fullFinancingProfile: ApplicantProfile = {
+  totalProjectCost: 500000,
+  userContribution: 0,
+  financingRequested: 500000,
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sousse',
+  businessStage: 'idea_project',
+  legalStructure: 'sarl',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const fullFinancingResults = runMatchingEngine(fullFinancingProfile);
+const bfpmeFullFin = fullFinancingResults.find(r => r.program.id === 'bfpme_creation');
+assert(bfpmeFullFin?.eligibilityOutcome === 'UNKNOWN_DUE_TO_MISSING_DATA', '8. Full financing request returns UNKNOWN_DUE_TO_MISSING_DATA');
+assert(bfpmeFullFin?.costEstimate.canCalculateReliably === false, '8. Full financing does not assume 100% bank financing calculation');
+
+// Test 9: Fund capitalization cannot become borrower financing ceiling
+const fgpmeCapClaim = repo.getClaim('claim_fgpme_7590_allocation');
+assert(fgpmeCapClaim?.isFundLevelFact === true, '9. Fund capitalization is explicitly flagged as fund-level fact');
+assert(fgpmeCapClaim?.value === 30000000, '9. Fund capitalization is 30M TND');
+const sotugarProgram = FINANCING_PROGRAMS.find(p => p.id === 'sotugar_guarantee');
+assert(sotugarProgram?.maxAmount !== 30000000, '9. Borrower financing ceiling is not 30M TND');
+
+// Test 10: Compatibility without evidence remains UNKNOWN/POTENTIALLY_COMPATIBLE
+const unknownCompat = repo.getCompatibility('unknown_program_a', 'unknown_program_b');
+assert(unknownCompat.compatibilityStatus === 'UNKNOWN' && unknownCompat.confidence === 'LOW', '10. Compatibility without evidence remains UNKNOWN with LOW confidence');
+
+// Test 11: Duplicate research import is idempotent
+const repoCopy = new FinancingClaimsRepository();
+const summary1 = repoCopy.getReconciliationSummary();
+repoCopy.ingestClaims(INITIAL_CANONICAL_CLAIMS);
+const summary2 = repoCopy.getReconciliationSummary();
+assert(summary1.stats.total === summary2.stats.total, '11. Re-importing identical claims does not create duplicates (idempotency)');
+assert(summary1.stats.active === summary2.stats.active, '11. Active claims count remains strictly identical');
+
+// Test 12: Conflicting sources remain auditable
+const bfpmeAllCostClaims = repo.getAllClaims('bfpme_creation').filter(c => c.field === 'maxFinancingAmount');
+assert(bfpmeAllCostClaims.length === 2, '12. Both historical 5M and current 2.5M claims remain auditable in repository');
+
+// Test 13: Historical SOTUGAR 75/90 percentages remain historical
+const fgpmePriorityClaim = repo.getClaim('claim_fgpme_7590_coverage_priority');
+assert(fgpmePriorityClaim?.ruleStatus === 'VERIFIED_HISTORICAL', '13. SOTUGAR 75/90 priority coverage remains VERIFIED_HISTORICAL');
+
+// Test 14: Current BFPME 150k minimum is usable
+const bfpmeMinCostClaim = repo.getClaim('claim_bfpme_min_cost_current');
+assert(bfpmeMinCostClaim?.value === 150000 && bfpmeMinCostClaim?.ruleStatus === 'VERIFIED_CURRENT', '14. Current BFPME 150k min cost is usable');
+
+// Test 15: Current BFPME 15M maximum is usable
+const bfpmeMaxCostClaim = repo.getClaim('claim_bfpme_max_cost_current');
+assert(bfpmeMaxCostClaim?.value === 15000000 && bfpmeMaxCostClaim?.ruleStatus === 'VERIFIED_CURRENT', '15. Current BFPME 15M max cost is usable');
+
+// Test 16: Current BFPME 65% ceiling is usable
+const bfpmePctClaim = repo.getClaim('claim_bfpme_cmlt_ceiling_pct_current');
+assert(bfpmePctClaim?.value === 65 && bfpmePctClaim?.ruleStatus === 'VERIFIED_CURRENT', '16. Current BFPME 65% CMLT ceiling is usable');
+
+// Test 17: Current BFPME 2.5M CMLT ceiling is usable
+const bfpmeCeilClaim = repo.getClaim('claim_bfpme_cmlt_ceiling_amount_current');
+assert(bfpmeCeilClaim?.value === 2500000 && bfpmeCeilClaim?.ruleStatus === 'VERIFIED_CURRENT', '17. Current BFPME 2.5M CMLT ceiling is usable');
+
+// Test 18: BFPME 70% request against project cost is rejected
+const profile70Pct: ApplicantProfile = {
+  totalProjectCost: 1000000,
+  userContribution: 300000,
+  financingRequested: 700000, // 70% > 65%
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Tunis',
+  businessStage: 'idea_project',
+  legalStructure: 'sarl',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res70 = runMatchingEngine(profile70Pct).find(r => r.program.id === 'bfpme_creation');
+assert(res70?.status === 'NOT_MATCHED' && res70?.eligibilityOutcome === 'INCOMPATIBLE_ON_DOCUMENTED_RULES', '18. BFPME 70% financing request is rejected');
+
+// Test 19: BFPME 2.6M CMLT request is rejected
+const profile2_6M: ApplicantProfile = {
+  totalProjectCost: 5000000,
+  userContribution: 2400000,
+  financingRequested: 2600000, // 2.6M > 2.5M CMLT ceiling
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sfax',
+  businessStage: 'established_under_2y',
+  legalStructure: 'sa',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res2_6M = runMatchingEngine(profile2_6M).find(r => r.program.id === 'bfpme_creation');
+assert(res2_6M?.status === 'NOT_MATCHED' && res2_6M?.eligibilityOutcome === 'INCOMPATIBLE_ON_DOCUMENTED_RULES', '19. BFPME 2.6M CMLT request is rejected');
+
+// Test 20: BFPME 149,999 TND project is rejected
+const profile149k: ApplicantProfile = {
+  totalProjectCost: 149999, // < 150,000 TND
+  userContribution: 50000,
+  financingRequested: 90000,
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sousse',
+  businessStage: 'idea_project',
+  legalStructure: 'suarl',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res149k = runMatchingEngine(profile149k).find(r => r.program.id === 'bfpme_creation');
+assert(res149k?.status === 'NOT_MATCHED' && res149k?.eligibilityOutcome === 'INCOMPATIBLE_ON_DOCUMENTED_RULES', '20. BFPME 149,999 TND project is rejected');
+
+// Test 21: BFPME 150,000 TND boundary passes documented amount rule
+const profile150k: ApplicantProfile = {
+  totalProjectCost: 150000, // = 150,000 TND boundary
+  userContribution: 60000,
+  financingRequested: 90000, // 60% <= 65%
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sousse',
+  businessStage: 'idea_project',
+  legalStructure: 'suarl',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res150k = runMatchingEngine(profile150k).find(r => r.program.id === 'bfpme_creation');
+assert(res150k?.financialEvaluation.amountStatus === 'PASS', '21. BFPME 150,000 TND boundary passes documented amount rule');
+
+// Test 22: BFPME 15M boundary passes documented amount rule
+const profile15M: ApplicantProfile = {
+  totalProjectCost: 15000000, // = 15M TND boundary
+  userContribution: 12500000,
+  financingRequested: 2500000, // = 2.5M max ceiling
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sfax',
+  businessStage: 'established_under_2y',
+  legalStructure: 'sa',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res15M = runMatchingEngine(profile15M).find(r => r.program.id === 'bfpme_creation');
+assert(res15M?.financialEvaluation.amountStatus === 'PASS', '22. BFPME 15M boundary passes documented amount rule');
+
+// Test 23: BFPME 15,000,001 TND fails
+const profile15M1: ApplicantProfile = {
+  totalProjectCost: 15000001, // > 15M
+  userContribution: 12500001,
+  financingRequested: 2500000,
+  purpose: 'creation',
+  sector: 'industry',
+  location: 'Sfax',
+  businessStage: 'established_under_2y',
+  legalStructure: 'sa',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any'
+};
+const res15M1 = runMatchingEngine(profile15M1).find(r => r.program.id === 'bfpme_creation');
+assert(res15M1?.status === 'NOT_MATCHED' && res15M1?.eligibilityOutcome === 'INCOMPATIBLE_ON_DOCUMENTED_RULES', '23. BFPME 15,000,001 TND project is rejected');
+
+// Test 24: Rural guesthouse is not rejected by the generic accommodation exclusion
+const profileGuesthouse: ApplicantProfile = {
+  totalProjectCost: 400000,
+  userContribution: 150000,
+  financingRequested: 250000,
+  purpose: 'creation',
+  sector: 'tourism',
+  location: 'Zaghouan',
+  businessStage: 'idea_project',
+  legalStructure: 'sarl',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any',
+  projectDescription: "Création d'un gîte rural et maison d'hôtes écologique à Zaghouan"
+};
+const resGuesthouse = runMatchingEngine(profileGuesthouse).find(r => r.program.id === 'bfpme_creation');
+assert(resGuesthouse?.status !== 'NOT_MATCHED', '24. Rural guesthouse passes BFPME tourism exception');
+
+// Test 25: Residential developer is rejected on documented rule
+const profileDeveloper: ApplicantProfile = {
+  totalProjectCost: 2000000,
+  userContribution: 800000,
+  financingRequested: 1200000,
+  purpose: 'creation',
+  sector: 'real_estate',
+  location: 'Tunis',
+  businessStage: 'creation_underway',
+  legalStructure: 'sa',
+  hasHigherEducationDegree: true,
+  hasStartupActLabel: false,
+  isRegionalDevelopmentZone: false,
+  structurePreference: 'any',
+  projectDescription: "Société de promotion immobilière résidentielle pour construction de logements"
+};
+const resDev = runMatchingEngine(profileDeveloper).find(r => r.program.id === 'bfpme_creation');
+assert(resDev?.status === 'NOT_MATCHED' && resDev?.eligibilityOutcome === 'INCOMPATIBLE_ON_DOCUMENTED_RULES', '25. Residential developer is rejected on documented BFPME rule');
+
+// Test 26: Full-financing case returns UNKNOWN_DUE_TO_MISSING_DATA
+const resFullFinCase = runMatchingEngine(fullFinancingProfile).find(r => r.program.id === 'bfpme_creation');
+assert(resFullFinCase?.eligibilityOutcome === 'UNKNOWN_DUE_TO_MISSING_DATA', '26. Full-financing case returns UNKNOWN_DUE_TO_MISSING_DATA');
+
+// Test 27: Historical FGJC status remains UNKNOWN operationally
+const fgjcClaim = repo.getClaim('claim_fgjc_project_ceiling');
+assert(fgjcClaim?.operationalStatus === 'UNKNOWN' && fgjcClaim?.ruleStatus === 'VERIFIED_HISTORICAL', '27. Historical FGJC status remains UNKNOWN operationally (not assumed closed)');
+
+// Test 28: Startup Guarantee + VC/FCPR/seed fund remains VERIFIED_HISTORICAL
+const startupVcCompat = repo.getCompatibility('startup_guarantee_fund', 'venture_capital_fund');
+assert(startupVcCompat.compatibilityStatus === 'HISTORICAL_COMPATIBILITY' && startupVcCompat.ruleStatus === 'VERIFIED_HISTORICAL', '28. Startup Guarantee + VC remains VERIFIED_HISTORICAL');
+
+// Test 29: Startup Guarantee + bank remains UNKNOWN
+const startupBankCompat = repo.getCompatibility('startup_guarantee_fund', 'bh_bank_loan');
+assert(startupBankCompat.compatibilityStatus === 'UNKNOWN', '29. Startup Guarantee + bank credit remains UNKNOWN');
+
+// Test 30: BFPME + SOTUGAR remains POTENTIALLY_COMPATIBLE with LOW confidence
+const bfpmeSotugarCompat = repo.getCompatibility('bfpme_creation', 'sotugar_guarantee');
+assert(bfpmeSotugarCompat.compatibilityStatus === 'POTENTIALLY_COMPATIBLE' && bfpmeSotugarCompat.confidence === 'LOW', '30. BFPME + SOTUGAR remains POTENTIALLY_COMPATIBLE with LOW confidence');
 
 console.log('\n================================================================');
 if (allPassed) {
-  console.log('🎉 ALL AUDIT SCENARIOS, BATCH 2 EVIDENCE CLOSURES, LABEL SAFETY & INVARIANTS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL 55 AUDIT SCENARIOS (A-Z) & 30 KNOWLEDGE ARCHITECTURE INVARIANTS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME CHECKS FAILED');
   process.exit(1);
 }
+

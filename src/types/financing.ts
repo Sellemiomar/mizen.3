@@ -8,13 +8,10 @@ export type Language = 'fr' | 'ar';
 
 export type VerificationStatus = 
   | 'VERIFIED'
-  | 'VERIFIED_CURRENT'
-  | 'VERIFIED_HISTORICAL'
   | 'PARTIALLY_VERIFIED'
   | 'OUTDATED'
   | 'UNVERIFIED'
-  | 'SOURCE_UNAVAILABLE'
-  | 'UNKNOWN';
+  | 'SOURCE_UNAVAILABLE';
 
 export type ProviderType = 
   | 'public_bank'
@@ -94,6 +91,8 @@ export type BusinessSector =
   | 'commerce'
   | 'renewable_energy'
   | 'tourism'
+  | 'real_estate'
+  | 'residential_real_estate_promotion'
   | 'other';
 
 export type LegalStructure = 
@@ -515,10 +514,18 @@ export interface CostEstimate {
 import { ExclusionReason, SimulatorReference } from './knowledge';
 export * from './knowledge';
 
+export type EligibilityOutcome = 
+  | 'DOCUMENTED_ELIGIBILITY'
+  | 'POTENTIAL_ELIGIBILITY'
+  | 'UNKNOWN'
+  | 'UNKNOWN_DUE_TO_MISSING_DATA'
+  | 'INCOMPATIBLE_ON_DOCUMENTED_RULES';
+
 export interface MatchResult {
   program: FinancingProgram;
   provider: Provider;
   status: MatchStatus;
+  eligibilityOutcome?: EligibilityOutcome;
   applicabilityStatus: ApplicabilityStatus;
   applicabilityReason?: {
     fr: string;

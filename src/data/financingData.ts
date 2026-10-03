@@ -217,31 +217,30 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     code: 'BFPME-CREAT',
     providerId: 'bfpme',
     name: {
-      fr: "Crédit d'Investissement PME (CMLT)",
-      ar: 'قرض الاستثمار لإحداث وتوسعة المؤسسات الصغرى والمتوسطة'
+      fr: "Crédit d'Investissement PME - Création",
+      ar: 'قرض الاستثمار لإحداث المؤسسات الصغرى والمتوسطة'
     },
     tagline: {
-      fr: 'Co-financement moyen et long terme pour l’acquisition d’équipements et investissements de 150 000 DT à 15 000 000 DT.',
-      ar: 'تمويل مشترك متوسط وطويل المدى لاقتناء التجهيزات والاستثمارات من 150 ألف دينار إلى 15 مليون دينار.'
+      fr: 'Financement moyen et long terme pour l’acquisition d’équipements et constructions industrielles/services.',
+      ar: 'تمويل متوسط وطويل المدى لاقتناء التجهيزات والإنشاءات الصناعية والخدماتية.'
     },
     category: 'bank_loan',
     purposes: ['creation', 'equipment', 'expansion'],
     minAmount: 50000,
-    maxAmount: 2500000, // CMLT Loan ceiling is 2.5m TND
-    minProjectCost: 150000,
-    maxProjectCost: 15000000,
+    maxAmount: 2500000,
+    minContributionPercent: 20,
     rateType: 'variable_tmm',
     rateDescription: {
-      fr: 'Taux variable indexé sur le TMM + marge publiée de 2% à 4,5% (formule exacte et pondération du risque à confirmer avec l’agence).',
-      ar: 'نسبة متغيرة مرتبطة بمعدل TMM + هامش منشور بين 2% و 4.5% (الصيغة الدقيقة تحدد مع الفرع).'
+      fr: 'Marge commerciale publiée de 2 à 4,5 points (relation exacte avec TMM et taux effectif à confirmer par votre agence).',
+      ar: 'هامش تجاري منشور بين 2 و 4.5 نقاط مئوية (العلاقة الدقيقة مع TMM والنسبة الفعلية تحدد مع الفرع).'
     },
-    durationMonthsMin: 24,
+    durationMonthsMin: 36,
     durationMonthsMax: 120,
-    gracePeriodMonthsMin: 6,
+    gracePeriodMonthsMin: 12,
     gracePeriodMonthsMax: 36,
     guaranteeRequirements: {
-      fr: 'Intervention potentielle de la SOTUGAR pour le partage des risques, nantissement matériel.',
-      ar: 'إمكانية تدخل الشركة التونسية للضمان (SOTUGAR) لتقاسم المخاطر ورهن المعدات.'
+      fr: 'Intervention obligatoire ou recommandée de la SOTUGAR (jusqu’à 60-70%), nantissement matériel, hypothèque éventuelle.',
+      ar: 'تدخل الشركة التونسية للضمان (SOTUGAR) بنسبة تصل إلى 60-70% ورهن المعدات.'
     },
     targetAudience: {
       fr: 'Entrepreneurs tunisiens créant ou développant une PME dans l’industrie, les TIC, la santé ou les services à forte valeur ajoutée.',
@@ -249,25 +248,17 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     },
     eligibilityCriteria: {
       stages: ['idea_project', 'creation_underway', 'established_under_2y', 'established_over_2y'],
-      sectors: ['industry', 'ict_tech', 'services', 'renewable_energy', 'crafts_trades', 'agriculture_agribusiness'],
+      sectors: ['industry', 'ict_tech', 'services', 'renewable_energy', 'tourism', 'agriculture_agribusiness'],
       allowedLegalForms: ['suarl', 'sarl', 'sa'],
       requiresDegree: false,
       otherRules: [
         {
-          fr: 'Coût total d’investissement compris obligatoirement entre 150 000 DT et 15 000 000 DT.',
-          ar: 'كلفة الاستثمار الجملية يجب أن تتراوح بين 150 ألف دينار و 15 مليون دينار.'
-        },
-        {
-          fr: 'Financement CMLT plafonné à 2,5 millions DT et 65% du coût total du projet.',
-          ar: 'قرض BFPME لا يتجاوز 2.5 مليون دينار و 65% من الكلفة الجملية للمشروع.'
-        },
-        {
-          fr: 'Exclusion de l’hôtellerie d’hébergement classique (hors maisons d’hôtes) et de la promotion immobilière résidentielle.',
-          ar: 'استثناء رسمي للفندقة الكلاسيكية (باستثناء دور الضيافة) والبعث العقاري السكني.'
-        },
-        {
           fr: 'Nécessite une étude technico-économique (Business Plan) complète et validée.',
           ar: 'يشترط تقديم دراسة جدوى فنية واقتصادية متكاملة.'
+        },
+        {
+          fr: 'Apport personnel minimum de 20% (peut être complété par une dotation FOPRODI en ZDR).',
+          ar: 'تمويل ذاتي لا يقل عن 20% (يمكن تدعيمه بصندوق فبرودي في مناطق التنمية الجهوية).'
         }
       ]
     },
@@ -275,8 +266,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       {
         id: 'bp_tech',
         name: {
-          fr: 'Business Plan détaillé avec plan financier sur 5 ans (modèle BFPME)',
-          ar: 'مخطط أعمال مفصل مع توقعات مالية لـ 5 سنوات (نموذج BFPME)'
+          fr: 'Business Plan détaillé avec plan financier sur 5 ans',
+          ar: 'مخطط أعمال مفصل مع توقعات مالية لـ 5 سنوات'
         },
         category: 'technical_business_plan',
         mandatory: true
@@ -349,8 +340,8 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
         ar: 'لا يمكن تمويل رأس المال العامل بمفرده دون استثمار مادي في التجهيزات.'
       },
       {
-        fr: 'Les conditions de financement intégral sont réservées aux entreprises ayant au moins 3 ans d’activité avec concours bancaire court terme sain.',
-        ar: 'شروط التمويل الكلي مخصصة للشركات ذات الأقدمية (3 سنوات فأكثر) بتمويل بنكي قصير المدى سليم.'
+        fr: 'Les délais d’instruction varient généralement entre 4 et 12 semaines.',
+        ar: 'تتراوح مدة دراسة الملف بين 4 و 12 أسبوعاً في العادة.'
       }
     ],
     hasRegionalDevelopmentBonus: true,
@@ -360,12 +351,12 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
       sourceUrl: 'https://www.bfpme.com.tn/fr/financement/credit-investissement',
       sourceTitle: 'BFPME - Guide officiel du crédit d’investissement PME',
       sourceType: 'bank_fiche',
-      dateChecked: '2026-10-03',
-      verifiedFields: ['minAmount', 'maxAmount', 'minProjectCost', 'maxProjectCost', 'cmltPercentage', 'purposes'],
-      unverifiedFields: ['exactMarginOverTMM', 'variableCommercialSpread', 'fullFinancingConditions'],
+      dateChecked: '2026-06-15',
+      verifiedFields: ['minAmount', 'maxAmount', 'minContributionPercent', 'durationMonthsMax', 'purposes'],
+      unverifiedFields: ['exactMarginOverTMM', 'variableCommercialSpread'],
       notes: {
-        fr: 'Plafonds d’investissement (150k DT à 15M DT) et de CMLT (2,5M DT, max 65%) vérifiés d’après la fiche institutionnelle BFPME.',
-        ar: 'تم التحقق من سقوف الاستثمار (150 ألف د إلى 15 م د) وقرض CMLT (2.5 م د، أقصى 65%) استناداً لدليل BFPME الرسمي.'
+        fr: 'Montants et durées vérifiés d’après la fiche institutionnelle BFPME. La marge exacte (+2,5% à +3,5% sur TMM) dépend de la décision du comité de crédit.',
+        ar: 'تم التحقق من السقوف والآجال استناداً لدليل المنتجات الرسمي. الهامش الدقيق (+2.5% إلى +3.5% فوق TMM) يحدده قرار لجنة القروض.'
       },
       lastUpdateYear: 2026
     }
@@ -524,11 +515,12 @@ export const FINANCING_PROGRAMS: FinancingProgram[] = [
     category: 'guarantee',
     purposes: ['creation', 'equipment', 'expansion', 'innovation_rd'],
     minAmount: 20000,
-    maxAmount: 15000000,
-    rateType: 'not_applicable',
+    maxAmount: 2500000,
+    minContributionPercent: 15,
+    rateType: 'fixed',
     rateDescription: {
-      fr: 'Commission / contribution : à confirmer selon le mécanisme de garantie (FGPME 75/90, FNG). SOTUGAR n’applique pas de taux d’intérêt débiteur.',
-      ar: 'عمولة / مساهمة الضمان : للتأكيد حسب آلية الضمان (75/90 أو FNG). سوتوغار لا تطبق فوائض بنكية.'
+      fr: 'Commission / contribution : à confirmer selon le mécanisme de garantie et les conditions applicables.',
+      ar: 'عمولة / مساهمة الضمان : للتأكيد حسب آلية الضمان والشروط المعمول بها.'
     },
     durationMonthsMin: 24,
     durationMonthsMax: 120,

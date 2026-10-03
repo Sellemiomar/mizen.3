@@ -1,61 +1,10 @@
 /**
  * Mizen - Canonical Financing Knowledge Layer Domain Model
  * Structured, source-backed representation of the Tunisian financing market.
- * 
- * Non-negotiable principles:
- * 1. Mizen must never be more confident than its evidence.
- * 2. A published rule is not automatically an operational product.
- * 3. Operational status is separate from rule status.
- * 4. PARTIALLY_VERIFIED must NEVER be treated as HIGH evidence confidence.
- * 5. Historical evidence must never silently become a current eligibility rule.
- * 6. UNKNOWN must remain UNKNOWN.
- * 7. Missing data must never be replaced with guessed defaults.
- * 8. A guarantee is not financing.
  */
 
-export type KnowledgeRuleStatus =
-  | 'VERIFIED_CURRENT'
-  | 'VERIFIED_HISTORICAL'
-  | 'PARTIALLY_VERIFIED'
-  | 'UNVERIFIED'
-  | 'OUTDATED'
-  | 'UNKNOWN';
-
-export type OperationalStatus =
-  | 'ACTIVE_CONFIRMED'
-  | 'ACTIVE_NOT_CONFIRMED'
-  | 'CLOSED_CONFIRMED'
-  | 'SUSPENDED'
-  | 'REPLACED'
-  | 'UNKNOWN';
-
-export type ApplicabilityScope =
-  | 'UNIVERSAL'
-  | 'CONDITIONAL'
-  | 'PRODUCT_SPECIFIC'
-  | 'CUSTOMER_SPECIFIC'
-  | 'GEOGRAPHICALLY_CONDITIONAL'
-  | 'UNKNOWN';
-
-export type EvidenceStrength =
-  | 'DIRECT_PRIMARY_CURRENT'
-  | 'DIRECT_PRIMARY_HISTORICAL'
-  | 'OFFICIAL_SECONDARY'
-  | 'HIGH_QUALITY_SECONDARY'
-  | 'UNVERIFIED';
-
-export type UnknownReason =
-  | 'NOT_FOUND'
-  | 'SOURCE_CONFLICT'
-  | 'SOURCE_OUTDATED'
-  | 'SOURCE_NOT_CURRENT'
-  | 'PRODUCT_STATUS_UNKNOWN'
-  | 'MECHANISM_SPECIFIC_RULE_UNKNOWN'
-  | 'LENDER_DISCRETION'
-  | 'CONTRACTUAL_TERM'
-  | 'MISSING_DOCUMENT'
-  | 'REQUIRES_PROVIDER_CONFIRMATION'
-  | 'OTHER';
+import { Language } from './financing';
+export * from './claims';
 
 export type FinancingProviderType =
   | 'BANK'
@@ -67,6 +16,12 @@ export type FinancingProviderType =
   | 'ISLAMIC_BANK'
   | 'INVESTMENT_FUND'
   | 'OTHER';
+
+export type ProviderOperationalStatus = 
+  | 'DISCOVERED'
+  | 'UNDER_REVIEW'
+  | 'VERIFIED'
+  | 'INACTIVE';
 
 export interface LocalizedText {
   fr?: string;
@@ -81,89 +36,41 @@ export type SourceType =
   | 'OFFICIAL_REGULATION'
   | 'OFFICIAL_NOTICE'
   | 'OFFICIAL_DOCUMENT'
-  | 'DIRECT_PRIMARY_CURRENT'
-  | 'DIRECT_PRIMARY_HISTORICAL'
-  | 'OFFICIAL_SECONDARY'
-  | 'HIGH_QUALITY_SECONDARY'
   | 'OTHER';
 
 export type EvidenceStatus =
-  | 'VERIFIED_CURRENT'
-  | 'VERIFIED_HISTORICAL'
+  | 'VERIFIED'
   | 'PARTIALLY_VERIFIED'
   | 'UNVERIFIED'
   | 'OUTDATED'
-  | 'SOURCE_UNAVAILABLE'
-  | 'UNKNOWN';
+  | 'SOURCE_UNAVAILABLE';
 
 export interface SourceReference {
   id: string;
   url: string;
   title?: string;
   publisher: string;
-  sourceType: SourceType | string;
-  evidenceStrength?: EvidenceStrength;
+  sourceType: SourceType;
   language?: 'fr' | 'ar' | 'en';
   publishedAt?: string;
   retrievedAt: string;
   lastVerifiedAt?: string;
   relevantSection?: string;
-  evidenceStatus: EvidenceStatus | string;
-}
-
-export interface RuleEvidence {
-  field: string;
-  status: KnowledgeRuleStatus;
-  value?: unknown;
-  sourceUrl?: string;
-  sourceTitle?: string;
-  sourceType?: string;
-  evidenceStrength: EvidenceStrength;
-  checkedAt?: string;
-  effectiveFrom?: string;
-  effectiveTo?: string;
-  lastKnownUpdateDate?: string;
-  unknownReason?: UnknownReason;
-  notes?: LocalizedText;
+  evidenceStatus: EvidenceStatus;
 }
 
 export interface FieldEvidence {
   field: string;
-  status: EvidenceStatus | KnowledgeRuleStatus;
+  status: EvidenceStatus;
   sourceIds: string[];
   verifiedAt?: string;
-  unknownReason?: UnknownReason;
   notes?: LocalizedText;
 }
 
 export interface ProductVerification {
-  status: EvidenceStatus | KnowledgeRuleStatus;
+  status: EvidenceStatus;
   fields: FieldEvidence[];
   lastVerifiedAt?: string;
-}
-
-export interface KnowledgeClaim {
-  id: string;
-  programId: string;
-  field: string;
-  value: unknown;
-  status: KnowledgeRuleStatus;
-  evidence: RuleEvidence[];
-  createdAt: string;
-  reviewedAt?: string;
-  supersedesClaimId?: string;
-  isCurrent: boolean;
-  notes?: LocalizedText;
-}
-
-export interface KnowledgeVersion {
-  version: string;
-  programId: string;
-  effectiveFrom: string;
-  effectiveTo?: string;
-  supersedesVersion?: string;
-  changelog: string;
-  claims: KnowledgeClaim[];
 }
 
 export interface FinancingProvider {
@@ -177,7 +84,7 @@ export interface FinancingProvider {
   country: 'TN';
   description?: LocalizedText;
   active: boolean;
-  status: OperationalStatus | 'DISCOVERED' | 'UNDER_REVIEW' | 'VERIFIED' | 'INACTIVE';
+  status: ProviderOperationalStatus;
   sources: SourceReference[];
   lastVerifiedAt?: string;
 }
@@ -246,15 +153,14 @@ export type RateType =
 
 export interface RateStructure {
   type: RateType;
-  value?: number; // e.g. 0.05 for 5%
+  value?: number; // e.g. 0.05 for 5% or fixed rate
   margin?: number; // e.g. 0.025 for TMM + 2.5%
-  referenceIndex?: string; // e.g. 'TMM'
+  referenceIndex?: string; // e.g. 'TMM' (Taux Moyen du Marché Monétaire)
   min?: number;
   max?: number;
   currency?: 'PERCENT';
   explanation?: LocalizedText;
   evidence?: FieldEvidence;
-  ruleStatus?: KnowledgeRuleStatus;
 }
 
 export interface FeeStructure {
@@ -265,16 +171,6 @@ export interface FeeStructure {
   percentage?: number;
   mandatory: boolean;
   evidence?: FieldEvidence;
-}
-
-export interface GuaranteeDetails {
-  coveragePercentMin?: number;
-  coveragePercentMax?: number;
-  coverageBasis: 'UNRECOVERABLE_AMOUNT' | 'PRINCIPAL' | 'OTHER' | 'UNKNOWN';
-  guaranteeFee?: number;
-  feeRuleStatus: KnowledgeRuleStatus;
-  eligibleBeneficiaries?: string[];
-  governorates?: string[];
 }
 
 export interface InsuranceRequirement {
@@ -303,7 +199,6 @@ export interface RequiredDocument {
   name: LocalizedText;
   description?: LocalizedText;
   mandatory: boolean;
-  evidenceStatus?: KnowledgeRuleStatus;
 }
 
 export interface ApplicationStep {
@@ -324,7 +219,6 @@ export interface FinancialTerms {
   insurance?: InsuranceRequirement[];
   gracePeriodMonths?: NumericRange;
   paymentStructure?: 'AMORTIZING_MONTHLY' | 'LEASING_RENTAL' | 'DEFERRED_SEASONAL' | 'SINGLE_BULLET' | 'OTHER';
-  guaranteeDetails?: GuaranteeDetails;
   verification: FieldEvidence[];
 }
 
@@ -364,7 +258,6 @@ export interface ApplicabilityRule {
   requiresHigherEducationDegree?: boolean;
   requiresStartupActLabel?: boolean;
   unverifiedApplicability?: boolean;
-  scope?: ApplicabilityScope;
 }
 
 export interface FinancingCriterion {
@@ -375,7 +268,6 @@ export interface FinancingCriterion {
   critical: boolean;
   description: LocalizedText;
   evidence?: FieldEvidence;
-  ruleStatus?: KnowledgeRuleStatus;
 }
 
 export interface FinancingProduct {
@@ -399,12 +291,6 @@ export interface FinancingProduct {
   verification: ProductVerification;
   sources: SourceReference[];
   status: 'ACTIVE' | 'INACTIVE' | 'UNKNOWN';
-  ruleStatus: KnowledgeRuleStatus;
-  operationalStatus: OperationalStatus;
-  knowledgeVersion: string;
-  lastReviewedAt: string;
-  claims?: KnowledgeClaim[];
-  evidenceMap?: Record<string, RuleEvidence>;
   lastCheckedAt?: string;
 }
 
