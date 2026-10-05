@@ -155,7 +155,8 @@ export interface RateStructure {
   type: RateType;
   value?: number; // e.g. 0.05 for 5% or fixed rate
   margin?: number; // e.g. 0.025 for TMM + 2.5%
-  referenceIndex?: string; // e.g. 'TMM' (Taux Moyen du Marché Monétaire)
+  marginRange?: { min: number; max: number };
+  referenceIndex?: string; // e.g. 'TMM' (Taux Moyen du Marché Monétaire) or 'UNKNOWN'
   min?: number;
   max?: number;
   currency?: 'PERCENT';

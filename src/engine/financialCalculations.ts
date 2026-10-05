@@ -1,5 +1,4 @@
 import { CostEstimate, FinancingProgram, FinancingStructure, RateOrigin } from '../types/financing';
-import { isFieldVerifiedCurrent, getRuleEvidence } from '../knowledge/knowledgeRegistry';
 
 /**
  * Mizen Financial Calculation & Simulation Engine

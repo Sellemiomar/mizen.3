@@ -105,6 +105,78 @@ export const CANONICAL_SOURCES: Record<string, SourceReference> = {
     retrievedAt: '2026-09-10',
     lastVerifiedAt: '2026-09-10',
     evidenceStatus: 'VERIFIED'
+  },
+  bts_official: {
+    id: 'src_bts_official',
+    url: 'https://www.bts.com.tn/produits-et-services/credits-dinvestissement/',
+    title: 'Conditions d\'octroi des crédits BTS Diplômés',
+    publisher: 'Banque Tunisienne de Solidarité (BTS)',
+    sourceType: 'OFFICIAL_PRODUCT_PAGE',
+    language: 'fr',
+    publishedAt: '2023-01-15',
+    retrievedAt: '2026-09-20',
+    lastVerifiedAt: '2026-09-20',
+    evidenceStatus: 'VERIFIED'
+  },
+  premier_logement_jort: {
+    id: 'src_premier_logement_jort',
+    url: 'http://www.legislation.tn/detailtexte/Decret-Gouvernemental-num-2017-278',
+    title: 'Décret gouvernemental n° 2017-278 fixant les conditions du Premier Logement',
+    publisher: 'JORT / Ministère de l\'Équipement',
+    sourceType: 'OFFICIAL_REGULATION',
+    language: 'fr',
+    publishedAt: '2017-03-01',
+    retrievedAt: '2026-09-20',
+    lastVerifiedAt: '2026-09-20',
+    evidenceStatus: 'VERIFIED'
+  },
+  bh_simulator: {
+    id: 'src_bh_simulator',
+    url: 'https://www.bhbank.tn/particuliers/simulateur-de-credit',
+    title: 'Simulateur officiel de crédit BH Bank',
+    publisher: 'BH Bank',
+    sourceType: 'OFFICIAL_SIMULATOR',
+    language: 'fr',
+    publishedAt: '2024-01-10',
+    retrievedAt: '2026-09-25',
+    lastVerifiedAt: '2026-09-25',
+    evidenceStatus: 'VERIFIED'
+  },
+  tlf_official: {
+    id: 'src_tlf_official',
+    url: 'https://www.tlf.com.tn/simulateur-leasing',
+    title: 'Simulateur officiel de leasing TLF',
+    publisher: 'Tunisie Leasing & Factoring',
+    sourceType: 'OFFICIAL_SIMULATOR',
+    language: 'fr',
+    publishedAt: '2024-02-01',
+    retrievedAt: '2026-09-26',
+    lastVerifiedAt: '2026-09-26',
+    evidenceStatus: 'VERIFIED'
+  },
+  zitouna_mourabaha: {
+    id: 'src_zitouna_mourabaha',
+    url: 'https://www.banquezitouna.com/fr/financement-entreprises/mourabaha-equipement',
+    title: 'Conditions Mourabaha Entreprises Zitouna',
+    publisher: 'Banque Zitouna',
+    sourceType: 'OFFICIAL_PRODUCT_PAGE',
+    language: 'fr',
+    publishedAt: '2023-05-15',
+    retrievedAt: '2026-09-21',
+    lastVerifiedAt: '2026-09-21',
+    evidenceStatus: 'VERIFIED'
+  },
+  startup_act_jort: {
+    id: 'src_startup_act_jort',
+    url: 'https://startup.gov.tn/fr/startup-act/avantages',
+    title: 'Loi n° 2018-20 relative aux Startups (Startup Act)',
+    publisher: 'JORT / Smart Capital',
+    sourceType: 'OFFICIAL_REGULATION',
+    language: 'fr',
+    publishedAt: '2018-04-20',
+    retrievedAt: '2026-09-20',
+    lastVerifiedAt: '2026-09-20',
+    evidenceStatus: 'VERIFIED'
   }
 };
 
@@ -538,6 +610,174 @@ export const INITIAL_CANONICAL_CLAIMS: FinancingClaim[] = [
       fr: "Plafonds par emprunteur et conditions précises de mise en œuvre bancaire non publiés intégralement.",
       ar: "السقوف الفردية وشروط التفعيل البنكي الدقيقة لم تنشر بالكامل."
     }
+  },
+
+  // -------------------------------------------------------------
+  // BTS Diplômés Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_bts_diplomes_amount_max',
+    entityId: 'bts_diplomes',
+    field: 'maxFinancingAmount',
+    value: 150000,
+    source: CANONICAL_SOURCES.bts_official,
+    sourceType: 'OFFICIAL_PRODUCT_PAGE',
+    sourceDate: '2023-01-15',
+    retrievalDate: '2026-09-20',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'CONDITIONAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE',
+    notes: {
+      fr: "Plafond maximum de crédit de 150 000 TND pour les diplômés de l'enseignement supérieur.",
+      ar: "سقف تمويل أقصى بـ 150 ألف دينار لحاملي الشهادات العليا."
+    }
+  },
+  {
+    claimId: 'claim_bts_diplomes_subsidized_rate',
+    entityId: 'bts_diplomes',
+    field: 'subsidizedInterestRate',
+    value: 0.05,
+    source: CANONICAL_SOURCES.bts_official,
+    sourceType: 'OFFICIAL_PRODUCT_PAGE',
+    sourceDate: '2023-01-15',
+    retrievalDate: '2026-09-20',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'CONDITIONAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE',
+    notes: {
+      fr: "Taux bonifié par l'État fixé à 5% fixe.",
+      ar: "نسبة فائدة تفاضلية مدعمة بـ 5% قارة."
+    }
+  },
+
+  // -------------------------------------------------------------
+  // Premier Logement Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_premier_logement_cost_cap',
+    entityId: 'premier_logement',
+    field: 'maxProjectCost',
+    value: 250000,
+    source: CANONICAL_SOURCES.premier_logement_jort,
+    sourceType: 'OFFICIAL_REGULATION',
+    sourceDate: '2017-03-01',
+    retrievalDate: '2026-09-20',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'UNIVERSAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE',
+    notes: {
+      fr: "Prix d'acquisition maximum du logement neuf fixé à 250 000 TND.",
+      ar: "سقف ثمن اقتناء المسكن الجديد محدد بـ 250 ألف دينار."
+    }
+  },
+  {
+    claimId: 'claim_premier_logement_rate',
+    entityId: 'premier_logement',
+    field: 'interestRate',
+    value: 0.02,
+    source: CANONICAL_SOURCES.premier_logement_jort,
+    sourceType: 'OFFICIAL_REGULATION',
+    sourceDate: '2017-03-01',
+    retrievalDate: '2026-09-20',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'UNIVERSAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE',
+    notes: {
+      fr: "Taux d'intérêt de 2% fixe l'an avec 5 ans de différé pour le crédit d'autofinancement.",
+      ar: "نسبة فائدة 2% قارة مع 5 سنوات إمهال لقرض التمويل الذاتي."
+    }
+  },
+
+  // -------------------------------------------------------------
+  // Crédit Auto Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_auto_credit_max_amount',
+    entityId: 'banque_credit_auto',
+    field: 'maxFinancingAmount',
+    value: 100000,
+    source: CANONICAL_SOURCES.bh_simulator,
+    sourceType: 'OFFICIAL_SIMULATOR',
+    sourceDate: '2024-01-10',
+    retrievalDate: '2026-09-25',
+    evidenceStrength: 'OFFICIAL_SECONDARY',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'UNIVERSAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE'
+  },
+
+  // -------------------------------------------------------------
+  // TLF Leasing Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_tlf_leasing_max_amount',
+    entityId: 'leasing_vehicule_pro',
+    field: 'maxFinancingAmount',
+    value: 300000,
+    source: CANONICAL_SOURCES.tlf_official,
+    sourceType: 'OFFICIAL_SIMULATOR',
+    sourceDate: '2024-02-01',
+    retrievalDate: '2026-09-26',
+    evidenceStrength: 'OFFICIAL_SECONDARY',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'UNIVERSAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE'
+  },
+
+  // -------------------------------------------------------------
+  // Startup Act Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_startup_act_bourse_max',
+    entityId: 'startup_act_bourse',
+    field: 'maxFinancingAmount',
+    value: 60000,
+    source: CANONICAL_SOURCES.startup_act_jort,
+    sourceType: 'OFFICIAL_REGULATION',
+    sourceDate: '2018-04-20',
+    retrievalDate: '2026-09-20',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'CONDITIONAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE'
+  },
+
+  // -------------------------------------------------------------
+  // Banque Zitouna Mourabaha Claims
+  // -------------------------------------------------------------
+  {
+    claimId: 'claim_zitouna_mourabaha_max',
+    entityId: 'banque_zitouna_mourabaha',
+    field: 'maxFinancingAmount',
+    value: 1000000,
+    source: CANONICAL_SOURCES.zitouna_mourabaha,
+    sourceType: 'OFFICIAL_PRODUCT_PAGE',
+    sourceDate: '2023-05-15',
+    retrievalDate: '2026-09-21',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT',
+    ruleStatus: 'VERIFIED_CURRENT',
+    operationalStatus: 'ACTIVE_CONFIRMED',
+    applicabilityStatus: 'CONDITIONAL',
+    confidence: 'HIGH',
+    conflictStatus: 'NONE'
   }
 ];
 
@@ -797,6 +1037,11 @@ export class FinancingClaimsRepository {
         ar: "إمكانية الجمع غير موثقة استناداً إلى مصادر رسمية."
       }
     };
+  }
+
+  public ingestCompatibility(claim: CompatibilityClaim): void {
+    this.compatibilityMap.set(`${claim.sourceEntityId}__${claim.targetEntityId}`, claim);
+    this.compatibilityMap.set(`${claim.targetEntityId}__${claim.sourceEntityId}`, claim);
   }
 
   public getReconciliationSummary(): ClaimReconciliationResult {

@@ -1,226 +1,154 @@
 /**
- * Mizen - Canonical Knowledge Registry
- * Deterministic query and evidence retrieval layer for financing programs, claims, and rules.
+ * Mizen - Central Financing Knowledge Registry
  * 
- * Rules:
- * - Deterministic lookup only.
- * - No LLM inference in authoritative rule status.
- * - Distinguishes VERIFIED_CURRENT from VERIFIED_HISTORICAL and PARTIALLY_VERIFIED.
+ * Single authoritative orchestrator for the Mizen knowledge architecture.
+ * Ensures the claims repository is the sole source of truth and prevents
+ * stale, duplicated, or unverified facts from reaching matching or calculations.
  */
 
+import { FinancingProduct, FinancingProvider, CatalogueMetadata } from '../types/knowledge';
+import { FinancingProgram, Provider } from '../types/financing';
+import { FinancingClaimsRepository, CLAIMS_REPOSITORY } from './claimsRepository';
 import { 
-  CANONICAL_PRODUCTS, 
-  CANONICAL_PROVIDERS, 
-  CANONICAL_METADATA 
-} from './canonicalCatalogue';
-import { 
-  FinancingProduct, 
-  FinancingProvider, 
-  KnowledgeClaim, 
-  KnowledgeRuleStatus, 
-  OperationalStatus, 
-  RuleEvidence, 
-  UnknownReason 
-} from '../types/knowledge';
+  getProjectedCanonicalProducts, 
+  getProjectedCanonicalProviders, 
+  projectCanonicalProduct 
+} from './canonicalProjection';
+import { ResearchImportEngine, ResearchImportBatch, ResearchImportOutcome } from './researchImport';
+import { CompatibilityClaim, FinancingClaim } from '../types/claims';
 
 export class KnowledgeRegistry {
-  private static instance: KnowledgeRegistry;
-  private productsMap: Map<string, FinancingProduct> = new Map();
-  private providersMap: Map<string, FinancingProvider> = new Map();
+  private repo: FinancingClaimsRepository;
+  private importEngine: ResearchImportEngine;
 
-  private constructor() {
-    this.reload();
+  constructor(repo: FinancingClaimsRepository = CLAIMS_REPOSITORY) {
+    this.repo = repo;
+    this.importEngine = new ResearchImportEngine(this.repo);
   }
 
-  public static getInstance(): KnowledgeRegistry {
-    if (!KnowledgeRegistry.instance) {
-      KnowledgeRegistry.instance = new KnowledgeRegistry();
-    }
-    return KnowledgeRegistry.instance;
+  public getClaimsRepository(): FinancingClaimsRepository {
+    return this.repo;
   }
 
-  public reload(): void {
-    this.productsMap.clear();
-    this.providersMap.clear();
-
-    for (const prov of CANONICAL_PROVIDERS) {
-      this.providersMap.set(prov.id, prov);
-    }
-    for (const prod of CANONICAL_PRODUCTS) {
-      this.productsMap.set(prod.id, prod);
-    }
+  public getImportEngine(): ResearchImportEngine {
+    return this.importEngine;
   }
 
-  public getCanonicalProgram(id: string): FinancingProduct | undefined {
-    return this.productsMap.get(id);
+  public getProducts(): FinancingProduct[] {
+    return getProjectedCanonicalProducts(this.repo);
   }
 
-  public getAllCanonicalPrograms(): FinancingProduct[] {
-    return Array.from(this.productsMap.values());
+  public getProductById(productId: string): FinancingProduct | undefined {
+    return projectCanonicalProduct(productId, this.repo);
   }
 
-  public getCanonicalProviders(): FinancingProvider[] {
-    return Array.from(this.providersMap.values());
+  public getProviders(): FinancingProvider[] {
+    return getProjectedCanonicalProviders(this.repo);
   }
 
-  public getCanonicalProvider(id: string): FinancingProvider | undefined {
-    return this.providersMap.get(id);
+  public getProviderById(providerId: string): FinancingProvider | undefined {
+    return this.getProviders().find(p => p.id === providerId);
   }
 
-  public getProgramOperationalStatus(programId: string): OperationalStatus {
-    const prod = this.productsMap.get(programId);
-    if (!prod) return 'UNKNOWN';
-    return prod.operationalStatus || 'UNKNOWN';
+  public getCompatibility(sourceId: string, targetId: string): CompatibilityClaim {
+    return this.repo.getCompatibility(sourceId, targetId);
   }
 
-  public getProgramKnowledgeVersion(programId: string): string {
-    const prod = this.productsMap.get(programId);
-    return prod?.knowledgeVersion || '1.0.0';
+  public importResearch(batch: ResearchImportBatch): ResearchImportOutcome {
+    return this.importEngine.importBatch(batch);
   }
 
-  public getRuleEvidence(programId: string, field: string): RuleEvidence | undefined {
-    const prod = this.productsMap.get(programId);
-    if (!prod) return undefined;
+  public getCatalogueMetadata(): CatalogueMetadata {
+    const products = this.getProducts();
+    const providers = this.getProviders();
+    const allClaims = this.repo.getAllClaims();
+    const srcMap = new Map<string, boolean>();
+    allClaims.forEach(c => {
+      if (c.source?.id) srcMap.set(c.source.id, true);
+    });
 
-    // Check direct evidence map if present
-    if (prod.evidenceMap && prod.evidenceMap[field]) {
-      return prod.evidenceMap[field];
-    }
+    return {
+      version: '2.5.0-canonical-claims',
+      generatedAt: '2026-10-03',
+      lastRefreshAt: '2026-10-03',
+      sourceCount: srcMap.size,
+      providerCount: providers.length,
+      productCount: products.length,
+      productsRequiringReview: 0
+    };
+  }
 
-    // Check financialTerms verification
-    const fieldVer = prod.financialTerms.verification.find(v => v.field === field);
-    if (fieldVer) {
-      return {
-        field,
-        status: (fieldVer.status as KnowledgeRuleStatus) || 'UNKNOWN',
-        evidenceStrength: fieldVer.status === 'VERIFIED_CURRENT' 
-          ? 'DIRECT_PRIMARY_CURRENT' 
-          : fieldVer.status === 'VERIFIED_HISTORICAL' 
-          ? 'DIRECT_PRIMARY_HISTORICAL' 
-          : 'UNVERIFIED',
-        unknownReason: fieldVer.unknownReason,
-        notes: fieldVer.notes
-      };
-    }
+  /**
+   * Phase 10: Strict Knowledge Integrity Audit
+   * Fails if any violation of the non-negotiable knowledge rules is detected.
+   */
+  public validateKnowledgeIntegrity(): { isValid: boolean; violations: string[] } {
+    const violations: string[] = [];
+    const allClaims = this.repo.getAllClaims();
+    const activeClaims = this.repo.getActiveClaims();
+    const products = this.getProducts();
 
-    // Check criteria evidence
-    const criterion = prod.criteria.find(c => c.field === field);
-    if (criterion) {
-      return {
-        field,
-        status: criterion.ruleStatus || 'VERIFIED_CURRENT',
-        value: criterion.expectedValue,
-        evidenceStrength: criterion.ruleStatus === 'VERIFIED_CURRENT' 
-          ? 'DIRECT_PRIMARY_CURRENT' 
-          : 'DIRECT_PRIMARY_HISTORICAL'
-      };
+    // 1. Check for claims missing provenance or sources
+    for (const claim of allClaims) {
+      if (!claim.source || !claim.source.id || !claim.source.url) {
+        violations.push(`Claim ${claim.claimId} on ${claim.entityId}.${claim.field} is missing valid source provenance.`);
+      }
+      if (!claim.evidenceStrength) {
+        violations.push(`Claim ${claim.claimId} is missing evidenceStrength classification.`);
+      }
+      if (!claim.ruleStatus) {
+        violations.push(`Claim ${claim.claimId} is missing ruleStatus.`);
+      }
+      if (!claim.operationalStatus) {
+        violations.push(`Claim ${claim.claimId} is missing operationalStatus.`);
+      }
     }
 
-    return undefined;
-  }
-
-  public isFieldVerifiedCurrent(programId: string, field: string): boolean {
-    const prod = this.productsMap.get(programId);
-    if (!prod) return false;
-
-    // If product itself is historical or outdated, field cannot be verified current
-    if (prod.ruleStatus === 'VERIFIED_HISTORICAL' || prod.ruleStatus === 'OUTDATED') {
-      return false;
+    // 2. Check that no historical claim is marked as active current
+    for (const claim of allClaims) {
+      if (
+        (claim.ruleStatus === 'VERIFIED_HISTORICAL' || claim.operationalStatus === 'HISTORICAL_ONLY') &&
+        claim.conflictStatus !== 'SUPERSEDED' &&
+        claim.conflictStatus !== 'HISTORICAL_DIVERGENCE' &&
+        activeClaims.some(ac => ac.claimId === claim.claimId)
+      ) {
+        violations.push(`Historical claim ${claim.claimId} leaked into active claims.`);
+      }
     }
 
-    // Check criterion
-    const crit = prod.criteria.find(c => c.field === field);
-    if (crit) {
-      return crit.ruleStatus === 'VERIFIED_CURRENT';
+    // 3. Fund capitalization must not become borrower financing ceiling
+    for (const claim of allClaims) {
+      if (claim.isFundLevelFact) {
+        // Ensure no active product has its maxAmount set to this fund allocation
+        for (const prod of products) {
+          if (prod.financialTerms.amount?.max === claim.value) {
+            violations.push(`Product ${prod.id} maxAmount is incorrectly set to fund capitalization ${claim.value} (Claim: ${claim.claimId}).`);
+          }
+        }
+      }
     }
 
-    // Check financial terms
-    const termEvidence = prod.financialTerms.verification.find(v => v.field === field);
-    if (termEvidence) {
-      return termEvidence.status === 'VERIFIED_CURRENT' || termEvidence.status === 'VERIFIED';
+    // 4. Rate range must not be converted into a single fabricated rate
+    const bfpmeActiveMargin = activeClaims.find(c => c.entityId === 'bfpme_creation' && c.field === 'publishedMarginRange');
+    if (bfpmeActiveMargin && typeof bfpmeActiveMargin.value === 'object') {
+      const bfpmeProd = products.find(p => p.id === 'bfpme_creation');
+      if (bfpmeProd?.financialTerms.rate?.margin !== undefined && typeof bfpmeProd.financialTerms.rate.margin === 'number') {
+        violations.push(`BFPME published margin range was incorrectly collapsed to a fixed single rate margin (${bfpmeProd.financialTerms.rate.margin}).`);
+      }
     }
 
-    // Check claims
-    const claim = prod.claims?.find(c => c.field === field && c.isCurrent);
-    if (claim) {
-      return claim.status === 'VERIFIED_CURRENT';
+    // 5. Incompatible or unverified compatibility must not claim VERIFIED_COMPATIBLE without evidence
+    const unknownComp = this.repo.getCompatibility('unknown_a', 'unknown_b');
+    if (unknownComp.compatibilityStatus === 'VERIFIED_COMPATIBLE') {
+      violations.push(`Unknown mechanism compatibility incorrectly resolved to VERIFIED_COMPATIBLE.`);
     }
 
-    return false;
-  }
-
-  public getCurrentRule(programId: string, field: string): unknown {
-    const prod = this.productsMap.get(programId);
-    if (!prod) return undefined;
-
-    const crit = prod.criteria.find(c => c.field === field);
-    if (crit && crit.ruleStatus === 'VERIFIED_CURRENT') {
-      return crit.expectedValue;
-    }
-
-    const claim = prod.claims?.find(c => c.field === field && c.isCurrent);
-    if (claim && claim.status === 'VERIFIED_CURRENT') {
-      return claim.value;
-    }
-
-    if (field === 'minAmount') return prod.financialTerms.amount?.min;
-    if (field === 'maxAmount') return prod.financialTerms.amount?.max;
-    if (field === 'minProjectCost') return prod.financialTerms.projectCost?.min;
-    if (field === 'maxProjectCost') return prod.financialTerms.projectCost?.max;
-
-    return undefined;
-  }
-
-  public getUnknownReason(programId: string, field: string): UnknownReason | undefined {
-    const evidence = this.getRuleEvidence(programId, field);
-    return evidence?.unknownReason;
-  }
-
-  public getClaimsForProgram(programId: string): KnowledgeClaim[] {
-    const prod = this.productsMap.get(programId);
-    return prod?.claims || [];
+    return {
+      isValid: violations.length === 0,
+      violations
+    };
   }
 }
 
-// Global exported helpers
-export const registry = KnowledgeRegistry.getInstance();
-
-export function getCanonicalProgram(id: string): FinancingProduct | undefined {
-  return registry.getCanonicalProgram(id);
-}
-
-export function getRuleEvidence(programId: string, field: string): RuleEvidence | undefined {
-  return registry.getRuleEvidence(programId, field);
-}
-
-export function getProgramOperationalStatus(programId: string): OperationalStatus {
-  return registry.getProgramOperationalStatus(programId);
-}
-
-export function isFieldVerifiedCurrent(programId: string, field: string): boolean {
-  return registry.isFieldVerifiedCurrent(programId, field);
-}
-
-export function getCurrentRule(programId: string, field: string): unknown {
-  return registry.getCurrentRule(programId, field);
-}
-
-export function getUnknownReason(programId: string, field: string): UnknownReason | undefined {
-  return registry.getUnknownReason(programId, field);
-}
-
-export function getProgramKnowledgeVersion(programId: string): string {
-  return registry.getProgramKnowledgeVersion(programId);
-}
-
-export function getClaimsForProgram(programId: string): KnowledgeClaim[] {
-  return registry.getClaimsForProgram(programId);
-}
-
-export function getAllCanonicalPrograms(): FinancingProduct[] {
-  return registry.getAllCanonicalPrograms();
-}
-
-export function getCanonicalProviders(): FinancingProvider[] {
-  return registry.getCanonicalProviders();
-}
+// Global Singleton Registry
+export const KNOWLEDGE_REGISTRY = new KnowledgeRegistry();

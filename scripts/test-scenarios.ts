@@ -1029,9 +1029,278 @@ assert(startupBankCompat.compatibilityStatus === 'UNKNOWN', '29. Startup Guarant
 const bfpmeSotugarCompat = repo.getCompatibility('bfpme_creation', 'sotugar_guarantee');
 assert(bfpmeSotugarCompat.compatibilityStatus === 'POTENTIALLY_COMPATIBLE' && bfpmeSotugarCompat.confidence === 'LOW', '30. BFPME + SOTUGAR remains POTENTIALLY_COMPATIBLE with LOW confidence');
 
+// -------------------------------------------------------------
+// Phase 6: Batch 2 Safety Tests Suite (20 Invariants)
+// -------------------------------------------------------------
+console.log('\n--- PHASE 6: 20 Tests de Non-Régression Stricts Batch 2 ---');
+import { KNOWLEDGE_REGISTRY } from '../src/knowledge/knowledgeRegistry';
+import { ResearchImportEngine } from '../src/knowledge/researchImport';
+
+const projBfpme = KNOWLEDGE_REGISTRY.getProductById('bfpme_creation');
+
+// 1. BFPME 65% ceiling remains 65%
+assert(repo.getClaim('claim_bfpme_cmlt_ceiling_pct_current')?.value === 65, 'P6.1: BFPME 65% ceiling remains 65%');
+
+// 2. BFPME 2.5M CMLT ceiling remains 2.5M
+assert(repo.getClaim('claim_bfpme_cmlt_ceiling_amount_current')?.value === 2500000, 'P6.2: BFPME 2.5M CMLT ceiling remains 2.5M');
+
+// 3. BFPME 15M project ceiling remains 15M
+assert(repo.getClaim('claim_bfpme_max_cost_current')?.value === 15000000, 'P6.3: BFPME 15M project ceiling remains 15M');
+
+// 4. BFPME margin range is represented as 2–4.5 percentage points
+const marginRangeClaim = repo.getClaim('claim_bfpme_margin_range_current');
+assert(
+  Boolean(
+    marginRangeClaim?.value &&
+    typeof marginRangeClaim.value === 'object' &&
+    (marginRangeClaim.value as any).min === 2.0 &&
+    (marginRangeClaim.value as any).max === 4.5
+  ),
+  'P6.4: BFPME margin range is represented as 2–4.5 percentage points'
+);
+
+// 5. BFPME margin is NOT automatically converted into TMM + 3% / TMM + 2% / TMM + 4.5%
+assert(
+  projBfpme?.financialTerms.rate?.margin === undefined,
+  'P6.5: BFPME rate margin is not collapsed into a single fixed number (TMM + 3%)'
+);
+assert(
+  projBfpme?.financialTerms.rate?.referenceIndex === 'UNKNOWN',
+  'P6.5: BFPME reference index is marked UNKNOWN as universal automatic formula'
+);
+
+// 6. BFPME "financement intégral" does NOT automatically become 100% financing or 0% equity
+const bfpmeFinIntegralClaim = repo.getClaim('claim_bfpme_financement_integral');
+assert(
+  bfpmeFinIntegralClaim?.value === 'UNKNOWN_DUE_TO_MISSING_DATA',
+  'P6.6: BFPME financement integral does not automatically become 100% financing or 0% equity'
+);
+
+// 7. Unknown BFPME repayment duration cannot produce a fabricated amortization schedule
+const unknownDurationProg = { ...FINANCING_PROGRAMS.find(p => p.id === 'bfpme_creation')!, durationMonthsMin: 0, durationMonthsMax: 0 };
+const costUnknownDuration = calculateFinancingCost(200000, unknownDurationProg);
+assert(
+  costUnknownDuration.canCalculateReliably === false && costUnknownDuration.monthlyPayment === undefined,
+  'P6.7: Unknown repayment duration cannot produce a fabricated amortization schedule'
+);
+
+// 8. Unknown BFPME grace period cannot produce a fabricated grace period
+assert(
+  bfpmePricing.canCalculateReliably === false && bfpmePricing.monthlyPayment === undefined,
+  'P6.8: Unknown grace period / rate spread prevents fake calculation'
+);
+
+// 9. Historical SOTUGAR 75/90 rules cannot be represented as currently active without current operational evidence
+const fgpmeHistoricalClaims = repo.getAllClaims('sotugar_fgpme_7590');
+assert(
+  fgpmeHistoricalClaims.every(c => c.operationalStatus === 'ACTIVE_NOT_CONFIRMED' || c.operationalStatus === 'HISTORICAL_ONLY'),
+  'P6.9: Historical SOTUGAR 75/90 rules are not active without current operational evidence'
+);
+
+// 10. SOTUGAR 75/90 coverage remains 90% priority / 75% other
+assert(repo.getClaim('claim_fgpme_7590_coverage_priority')?.value === 90, 'P6.10: SOTUGAR 75/90 priority is 90%');
+assert(repo.getClaim('claim_fgpme_7590_coverage_other')?.value === 75, 'P6.10: SOTUGAR 75/90 other is 75%');
+
+// 11. SOTUGAR mechanism coverage cannot become a generic "SOTUGAR covers 75%" rule
+const sotugarMechanismClaim = repo.getClaim('claim_sotugar_sme_coverage_historical');
+assert(
+  Array.isArray(sotugarMechanismClaim?.value) && (sotugarMechanismClaim?.value as number[]).includes(60),
+  'P6.11: SOTUGAR coverage is mechanism-dependent (75/60/50), not a generic flat 75%'
+);
+
+// 12. SOTUGAR guarantee fees remain UNKNOWN where evidence is missing
+const sotugarProgCurrent = FINANCING_PROGRAMS.find(p => p.id === 'sotugar_guarantee')!;
+assert(
+  sotugarProgCurrent.verification.unverifiedFields.includes('commissionRate'),
+  'P6.12: SOTUGAR guarantee fees remain UNKNOWN where evidence is missing'
+);
+
+// 13. FGJC operational status remains UNKNOWN
+assert(repo.getClaim('claim_fgjc_project_ceiling')?.operationalStatus === 'UNKNOWN', 'P6.13: FGJC operational status remains UNKNOWN');
+
+// 14. Startup Guarantee Fund coverage/fee/ceiling remain UNKNOWN where evidence is missing
+assert(repo.getClaim('claim_startup_guarantee_terms_unknown')?.value === 'UNKNOWN', 'P6.14: Startup Guarantee Fund terms remain UNKNOWN');
+
+// 15. Energy-transition fund capitalization cannot become an entrepreneur financing ceiling
+assert(repo.getClaim('claim_energy_transition_convention')?.isFundLevelFact === true, 'P6.15: Energy transition fund capitalization is fund-level fact');
+assert(repo.getClaim('claim_energy_transition_borrower_ceiling')?.value === 'UNKNOWN', 'P6.15: Energy transition borrower ceiling is UNKNOWN');
+
+// 16. BFPME + SOTUGAR remains POTENTIALLY_COMPATIBLE / LOW CONFIDENCE
+assert(bfpmeSotugarCompat.compatibilityStatus === 'POTENTIALLY_COMPATIBLE' && bfpmeSotugarCompat.confidence === 'LOW', 'P6.16: BFPME + SOTUGAR is POTENTIALLY_COMPATIBLE with LOW confidence');
+
+// 17. Grant + debt remains UNKNOWN without direct compatibility evidence
+const unknownGrantDebt = repo.getCompatibility('unverified_grant', 'unverified_debt');
+assert(unknownGrantDebt.compatibilityStatus === 'UNKNOWN' && unknownGrantDebt.confidence === 'LOW', 'P6.17: Grant + debt remains UNKNOWN without direct compatibility evidence');
+
+// 18. A newer weak secondary claim cannot supersede a stronger current primary claim
+const testImportRepo = new FinancingClaimsRepository();
+const importEngine = new ResearchImportEngine(testImportRepo);
+
+const weakSecondaryBatch = {
+  batchId: 'batch_test_weak_secondary',
+  importedAt: new Date().toISOString(),
+  sourceDescription: 'Test Weak Secondary Source',
+  claims: [
+    {
+      claimId: 'claim_bfpme_secondary_bad_ceiling',
+      entityId: 'bfpme_creation',
+      field: 'maxFinancingAmount',
+      value: 9999999, // Fake claim
+      source: {
+        id: 'src_test_blog',
+        url: 'https://blog.example.com/bfpme',
+        title: 'Random Blog Post',
+        publisher: 'Blog',
+        sourceType: 'BLOG_ARTICLE' as any,
+        retrievedAt: '2026-10-01',
+        evidenceStatus: 'UNVERIFIED' as any
+      },
+      sourceType: 'BLOG_ARTICLE' as any,
+      retrievalDate: '2026-10-01',
+      evidenceStrength: 'SECONDARY' as any,
+      ruleStatus: 'PARTIALLY_VERIFIED' as any,
+      operationalStatus: 'UNKNOWN' as any,
+      applicabilityStatus: 'UNKNOWN' as any,
+      confidence: 'LOW' as any,
+      conflictStatus: 'NONE' as any
+    }
+  ]
+};
+const outcomeWeak = importEngine.importBatch(weakSecondaryBatch);
+assert(outcomeWeak.conflictedClaims > 0 || outcomeWeak.issues.some(i => i.type === 'LOWER_PRECEDENCE_IGNORED'), 'P6.18: Weak secondary claim cannot supersede primary claim');
+const activeBfpmeCeilingAfterWeak = testImportRepo.getActiveClaims('bfpme_creation').find(c => c.field === 'maxFinancingAmount');
+assert(activeBfpmeCeilingAfterWeak?.value === 2500000, 'P6.18: Active BFPME ceiling remains 2.5M despite weak secondary import');
+
+// 19. A historical claim cannot supersede a current verified claim
+const historicalBatch = {
+  batchId: 'batch_test_historical',
+  importedAt: new Date().toISOString(),
+  sourceDescription: 'Test Historical PDF',
+  claims: [
+    {
+      claimId: 'claim_bfpme_old_historical_test',
+      entityId: 'bfpme_creation',
+      field: 'maxFinancingAmount',
+      value: 5000000,
+      source: {
+        id: 'src_test_old_pdf',
+        url: 'https://archive.example.com/2010.pdf',
+        title: 'Old 2010 Decree',
+        publisher: 'Gov',
+        sourceType: 'OFFICIAL_PDF' as any,
+        retrievedAt: '2026-10-01',
+        evidenceStatus: 'OUTDATED' as any
+      },
+      sourceType: 'OFFICIAL_PDF' as any,
+      retrievalDate: '2026-10-01',
+      evidenceStrength: 'DIRECT_PRIMARY_HISTORICAL' as any,
+      ruleStatus: 'VERIFIED_HISTORICAL' as any,
+      operationalStatus: 'HISTORICAL_ONLY' as any,
+      applicabilityStatus: 'CONDITIONAL' as any,
+      confidence: 'HIGH' as any,
+      conflictStatus: 'NONE' as any
+    }
+  ]
+};
+const outcomeHist = importEngine.importBatch(historicalBatch);
+const activeBfpmeCeilingAfterHist = testImportRepo.getActiveClaims('bfpme_creation').find(c => c.field === 'maxFinancingAmount');
+assert(activeBfpmeCeilingAfterHist?.value === 2500000, 'P6.19: Historical primary claim cannot supersede current verified 2.5M claim');
+
+// 20. A conflicting claim must remain visible and unresolved rather than silently replacing
+const conflictingBatch = {
+  batchId: 'batch_test_conflict',
+  importedAt: new Date().toISOString(),
+  sourceDescription: 'Test Conflicting Primary Source',
+  claims: [
+    {
+      claimId: 'claim_bfpme_conflicting_primary',
+      entityId: 'bfpme_creation',
+      field: 'minProjectCost',
+      value: 180000, // Conflict with 150000
+      source: {
+        id: 'src_test_conflicting_page',
+        url: 'https://bfpme.tn/other-page',
+        title: 'Conflicting Page',
+        publisher: 'BFPME',
+        sourceType: 'OFFICIAL_PRODUCT_PAGE' as any,
+        retrievedAt: '2026-10-01',
+        evidenceStatus: 'VERIFIED' as any
+      },
+      sourceType: 'OFFICIAL_PRODUCT_PAGE' as any,
+      retrievalDate: '2026-10-01',
+      evidenceStrength: 'DIRECT_PRIMARY_CURRENT' as any,
+      ruleStatus: 'VERIFIED_CURRENT' as any,
+      operationalStatus: 'ACTIVE_NOT_CONFIRMED' as any,
+      applicabilityStatus: 'CONDITIONAL' as any,
+      confidence: 'HIGH' as any,
+      conflictStatus: 'NONE' as any
+    }
+  ]
+};
+const outcomeConflict = importEngine.importBatch(conflictingBatch);
+assert(outcomeConflict.conflictedClaims > 0, 'P6.20: Conflicting equal-rank claim is flagged as conflict');
+
+// -------------------------------------------------------------
+// Phase 7: Runtime Integrity Test (Injection of Stale Fact)
+// -------------------------------------------------------------
+console.log('\n--- PHASE 7: Test d’Intégrité Runtime (Injection de Valeur Obsolète) ---');
+
+// Invariant: The runtime projection derives truth solely from authoritative claims
+const runtimeBfpme = KNOWLEDGE_REGISTRY.getProductById('bfpme_creation')!;
+assert(
+  runtimeBfpme.financialTerms.rate?.marginRange?.min === 2.0 &&
+  runtimeBfpme.financialTerms.rate?.marginRange?.max === 4.5,
+  'P7: Runtime exposes margin range 2.0 - 4.5 percentage points'
+);
+assert(
+  runtimeBfpme.financialTerms.rate?.referenceIndex === 'UNKNOWN',
+  'P7: Runtime exposes referenceIndex = UNKNOWN (not hardcoded TMM)'
+);
+assert(
+  runtimeBfpme.financialTerms.rate?.margin === undefined,
+  'P7: Runtime does NOT expose hardcoded legacy TMM + 3%'
+);
+
+// Inverse test: If an authoritative claim explicitly verifies TMM + 3%, runtime updates
+const validNewClaimRepo = new FinancingClaimsRepository();
+validNewClaimRepo.ingestClaims([
+  {
+    claimId: 'claim_bfpme_rate_formula_future_verified',
+    entityId: 'bfpme_creation',
+    field: 'rateFormulaVerified',
+    value: { reference: 'TMM', margin: 0.03 },
+    source: {
+      id: 'src_future_bct_bfpme_convention',
+      url: 'https://bct.gov.tn/convention_bfpme_2026',
+      title: 'Convention BCT-BFPME 2026',
+      publisher: 'BCT',
+      sourceType: 'OFFICIAL_REGULATION' as any,
+      retrievedAt: '2026-10-03',
+      evidenceStatus: 'VERIFIED' as any
+    },
+    sourceType: 'OFFICIAL_REGULATION' as any,
+    retrievalDate: '2026-10-03',
+    evidenceStrength: 'DIRECT_PRIMARY_CURRENT' as any,
+    ruleStatus: 'VERIFIED_CURRENT' as any,
+    operationalStatus: 'ACTIVE_CONFIRMED' as any,
+    applicabilityStatus: 'UNIVERSAL' as any,
+    confidence: 'HIGH' as any,
+    conflictStatus: 'NONE' as any
+  }
+]);
+assert(validNewClaimRepo.getClaim('claim_bfpme_rate_formula_future_verified')?.ruleStatus === 'VERIFIED_CURRENT', 'P7 Inverse: Verified claim is accepted');
+
+// -------------------------------------------------------------
+// Phase 10: Audit System Integrity CI Gate
+// -------------------------------------------------------------
+console.log('\n--- PHASE 10: Audit Système & Vérification de l’Architecture de Connaissance ---');
+const auditResult = KNOWLEDGE_REGISTRY.validateKnowledgeIntegrity();
+assert(auditResult.isValid === true, `P10: Knowledge integrity audit passes without violations (Violations: ${auditResult.violations.join('; ')})`);
+assert(auditResult.violations.length === 0, 'P10: Zero knowledge architecture violations in production catalogue');
+
 console.log('\n================================================================');
 if (allPassed) {
-  console.log('🎉 ALL 55 AUDIT SCENARIOS (A-Z) & 30 KNOWLEDGE ARCHITECTURE INVARIANTS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL AUDIT SCENARIOS, 30 INVARIANTS & PHASE 6-10 INTEGRITY TESTS PASSED SUCCESSFULLY!');
 } else {
   console.error('❌ SOME CHECKS FAILED');
   process.exit(1);

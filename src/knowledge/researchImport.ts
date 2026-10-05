@@ -1,175 +1,180 @@
 /**
- * Mizen - Research Import & Claim Management Pipeline
- * Manages research updates, normalization, validation, and conflict resolution.
+ * Mizen - Conflict-Aware Research Ingestion Engine
  * 
- * Pipeline:
- * RESEARCH -> NORMALIZE -> VALIDATE -> COMPARE WITH CURRENT CLAIM -> FLAG CONFLICT IF NEEDED -> APPROVE -> UPDATE CANONICAL KNOWLEDGE
+ * Safely imports new financing research into the claims repository without
+ * silently overwriting historical evidence or allowing weak/secondary facts
+ * to corrupt verified primary knowledge.
  */
 
 import { 
-  KnowledgeClaim, 
-  KnowledgeRuleStatus, 
-  RuleEvidence, 
-  SourceReference, 
-  UnknownReason,
-  FinancingProduct 
-} from '../types/knowledge';
+  FinancingClaim, 
+  CompatibilityClaim, 
+  EvidenceStrength, 
+  ClaimReconciliationResult
+} from '../types/claims';
+import { FinancingClaimsRepository } from './claimsRepository';
 
-export interface ResearchFactInput {
-  programId: string;
-  field: string;
-  value: unknown;
-  status: KnowledgeRuleStatus;
-  source: {
-    url: string;
-    title: string;
-    publisher: string;
-    sourceType: string;
-    checkedAt: string;
-    effectiveFrom?: string;
-  };
-  unknownReason?: UnknownReason;
-  notes?: {
-    fr: string;
-    ar: string;
-  };
+export const EVIDENCE_RANKING: Record<EvidenceStrength, number> = {
+  DIRECT_PRIMARY_CURRENT: 5,
+  DIRECT_PRIMARY_HISTORICAL: 4,
+  OFFICIAL_SECONDARY: 3,
+  SECONDARY: 2,
+  INFERRED: 1
+};
+
+export interface ResearchImportBatch {
+  batchId: string;
+  importedAt: string;
+  sourceDescription: string;
+  claims: FinancingClaim[];
+  compatibilities?: CompatibilityClaim[];
 }
 
-export interface ImportConflict {
-  programId: string;
-  field: string;
-  existingClaim: KnowledgeClaim;
-  incomingFact: ResearchFactInput;
-  reason: 'VALUE_MISMATCH' | 'STATUS_DOWNGRADE' | 'SOURCE_DIVERGENCE';
-  resolution?: 'ACCEPTED_NEW' | 'KEPT_EXISTING' | 'PENDING_REVIEW';
+export interface ResearchImportOutcome {
+  batchId: string;
+  importedAt: string;
+  acceptedClaims: number;
+  supersededClaims: number;
+  conflictedClaims: number;
+  skippedIdentical: number;
+  summary: ClaimReconciliationResult;
+  issues: Array<{
+    claimId: string;
+    entityId: string;
+    field: string;
+    type: 'CONFLICT_DETECTED' | 'LOWER_PRECEDENCE_IGNORED' | 'HISTORICAL_PRESERVED' | 'UNRESOLVED_DATA';
+    message: string;
+  }>;
 }
 
-export interface ImportResult {
-  success: boolean;
-  importedClaims: KnowledgeClaim[];
-  conflicts: ImportConflict[];
-  auditTrail: string[];
-}
+export class ResearchImportEngine {
+  constructor(private repo: FinancingClaimsRepository) {}
 
-export class ResearchImportPipeline {
-  private claimsRegistry: Map<string, KnowledgeClaim[]> = new Map();
+  /**
+   * Ingests a new research batch with strict conflict and precedence enforcement.
+   */
+  public importBatch(batch: ResearchImportBatch): ResearchImportOutcome {
+    let acceptedClaims = 0;
+    let supersededClaims = 0;
+    let conflictedClaims = 0;
+    let skippedIdentical = 0;
+    const issues: ResearchImportOutcome['issues'] = [];
 
-  constructor(initialClaims?: KnowledgeClaim[]) {
-    if (initialClaims) {
-      for (const c of initialClaims) {
-        const list = this.claimsRegistry.get(c.programId) || [];
-        list.push(c);
-        this.claimsRegistry.set(c.programId, list);
+    for (const incoming of batch.claims) {
+      const existingSameId = this.repo.getClaim(incoming.claimId);
+      
+      // 1. Idempotency Check: exact same claim ID and content
+      if (existingSameId) {
+        if (
+          existingSameId.value === incoming.value &&
+          existingSameId.ruleStatus === incoming.ruleStatus &&
+          existingSameId.operationalStatus === incoming.operationalStatus &&
+          existingSameId.evidenceStrength === incoming.evidenceStrength
+        ) {
+          skippedIdentical++;
+          continue;
+        }
+      }
+
+      // 2. Find existing claims for the same entity and field
+      const existingEntityFieldClaims = this.repo
+        .getAllClaims(incoming.entityId)
+        .filter(c => c.field === incoming.field && c.claimId !== incoming.claimId);
+
+      let shouldInsertIncoming = true;
+      let incomingClaimToStore: FinancingClaim = { ...incoming };
+
+      for (const existing of existingEntityFieldClaims) {
+        // Skip already superseded claims
+        if (existing.conflictStatus === 'SUPERSEDED') continue;
+
+        const incomingRank = EVIDENCE_RANKING[incoming.evidenceStrength] || 1;
+        const existingRank = EVIDENCE_RANKING[existing.evidenceStrength] || 1;
+
+        // CASE A: Incoming is stronger CURRENT PRIMARY and current claim is older/weaker
+        if (
+          incoming.evidenceStrength === 'DIRECT_PRIMARY_CURRENT' &&
+          incoming.ruleStatus === 'VERIFIED_CURRENT' &&
+          (existingRank < incomingRank || existing.ruleStatus === 'VERIFIED_HISTORICAL' || existing.ruleStatus === 'OUTDATED')
+        ) {
+          // Supersede the existing claim
+          existing.conflictStatus = 'SUPERSEDED';
+          existing.supersededByClaimId = incoming.claimId;
+          existing.supersededReason = `Mis à jour par la revendication ${incoming.claimId} (${incoming.source.title})`;
+          supersededClaims++;
+          continue;
+        }
+
+        // CASE B: Incoming is HISTORICAL PRIMARY and existing is CURRENT PRIMARY
+        if (
+          incoming.evidenceStrength === 'DIRECT_PRIMARY_HISTORICAL' &&
+          existing.evidenceStrength === 'DIRECT_PRIMARY_CURRENT' &&
+          existing.ruleStatus === 'VERIFIED_CURRENT'
+        ) {
+          // Historical cannot overwrite current verified
+          incomingClaimToStore.conflictStatus = 'HISTORICAL_DIVERGENCE';
+          incomingClaimToStore.ruleStatus = 'VERIFIED_HISTORICAL';
+          incomingClaimToStore.operationalStatus = 'HISTORICAL_ONLY';
+          issues.push({
+            claimId: incoming.claimId,
+            entityId: incoming.entityId,
+            field: incoming.field,
+            type: 'HISTORICAL_PRESERVED',
+            message: `Revendication historique ${incoming.claimId} conservée sans écraser la règle actuelle vérifiée ${existing.claimId}.`
+          });
+          continue;
+        }
+
+        // CASE C: Incoming is WEAKER (e.g. SECONDARY/INFERRED) than existing (DIRECT_PRIMARY)
+        if (incomingRank < existingRank) {
+          incomingClaimToStore.conflictStatus = 'CONFLICT_DETECTED';
+          conflictedClaims++;
+          issues.push({
+            claimId: incoming.claimId,
+            entityId: incoming.entityId,
+            field: incoming.field,
+            type: 'LOWER_PRECEDENCE_IGNORED',
+            message: `Source secondaire/faible ${incoming.claimId} (${incoming.evidenceStrength}) ne peut pas écraser la source primaire ${existing.claimId} (${existing.evidenceStrength}).`
+          });
+          continue;
+        }
+
+        // CASE D: EQUAL RANK with CONTRADICTING VALUES (and not superseding)
+        if (incomingRank === existingRank && JSON.stringify(incoming.value) !== JSON.stringify(existing.value)) {
+          incomingClaimToStore.conflictStatus = 'CONFLICT_DETECTED';
+          existing.conflictStatus = 'CONFLICT_DETECTED';
+          conflictedClaims++;
+          issues.push({
+            claimId: incoming.claimId,
+            entityId: incoming.entityId,
+            field: incoming.field,
+            type: 'CONFLICT_DETECTED',
+            message: `Conflit détecté entre ${incoming.claimId} et ${existing.claimId} de rang identique sans règle de précédence temporelle explicite.`
+          });
+        }
+      }
+
+      if (shouldInsertIncoming) {
+        this.repo.ingestClaims([incomingClaimToStore]);
+        acceptedClaims++;
       }
     }
-  }
 
-  public processResearchBatch(facts: ResearchFactInput[]): ImportResult {
-    const importedClaims: KnowledgeClaim[] = [];
-    const conflicts: ImportConflict[] = [];
-    const auditTrail: string[] = [];
-
-    for (const fact of facts) {
-      const existingClaims = this.claimsRegistry.get(fact.programId) || [];
-      const currentClaim = existingClaims.find(c => c.field === fact.field && c.isCurrent);
-
-      const sourceRef: SourceReference = {
-        id: `src_${fact.programId}_${fact.field}_${Date.now()}`,
-        url: fact.source.url,
-        title: fact.source.title,
-        publisher: fact.source.publisher,
-        sourceType: fact.source.sourceType,
-        retrievedAt: fact.source.checkedAt,
-        evidenceStatus: fact.status
-      };
-
-      const ruleEvidence: RuleEvidence = {
-        field: fact.field,
-        status: fact.status,
-        value: fact.value,
-        sourceUrl: fact.source.url,
-        sourceTitle: fact.source.title,
-        sourceType: fact.source.sourceType,
-        evidenceStrength: fact.source.sourceType.includes('CURRENT') 
-          ? 'DIRECT_PRIMARY_CURRENT' 
-          : 'DIRECT_PRIMARY_HISTORICAL',
-        checkedAt: fact.source.checkedAt,
-        effectiveFrom: fact.source.effectiveFrom,
-        unknownReason: fact.unknownReason,
-        notes: fact.notes
-      };
-
-      if (currentClaim) {
-        // Compare with current claim for conflicts
-        if (JSON.stringify(currentClaim.value) !== JSON.stringify(fact.value)) {
-          conflicts.push({
-            programId: fact.programId,
-            field: fact.field,
-            existingClaim: currentClaim,
-            incomingFact: fact,
-            reason: 'VALUE_MISMATCH'
-          });
-
-          auditTrail.push(`[CONFLICT] ${fact.programId}.${fact.field}: Existing (${JSON.stringify(currentClaim.value)}) vs Incoming (${JSON.stringify(fact.value)})`);
-          
-          // Mark previous claim as superseded when new stronger source arrives
-          currentClaim.isCurrent = false;
-          currentClaim.status = 'OUTDATED';
-
-          const newClaim: KnowledgeClaim = {
-            id: `claim_${fact.programId}_${fact.field}_v${existingClaims.length + 1}`,
-            programId: fact.programId,
-            field: fact.field,
-            value: fact.value,
-            status: fact.status,
-            evidence: [ruleEvidence],
-            createdAt: fact.source.checkedAt,
-            reviewedAt: new Date().toISOString().split('T')[0],
-            supersedesClaimId: currentClaim.id,
-            isCurrent: true,
-            notes: fact.notes
-          };
-
-          existingClaims.push(newClaim);
-          importedClaims.push(newClaim);
-          auditTrail.push(`[SUPERSEDED] Claim ${currentClaim.id} superseded by ${newClaim.id}`);
-        } else {
-          // Same value, enrich evidence
-          currentClaim.evidence.push(ruleEvidence);
-          currentClaim.reviewedAt = fact.source.checkedAt;
-          auditTrail.push(`[ENRICHED] Claim ${currentClaim.id} evidence refreshed`);
-        }
-      } else {
-        // New claim
-        const newClaim: KnowledgeClaim = {
-          id: `claim_${fact.programId}_${fact.field}_v1`,
-          programId: fact.programId,
-          field: fact.field,
-          value: fact.value,
-          status: fact.status,
-          evidence: [ruleEvidence],
-          createdAt: fact.source.checkedAt,
-          reviewedAt: new Date().toISOString().split('T')[0],
-          isCurrent: true,
-          notes: fact.notes
-        };
-
-        existingClaims.push(newClaim);
-        this.claimsRegistry.set(fact.programId, existingClaims);
-        importedClaims.push(newClaim);
-        auditTrail.push(`[CREATED] New claim ${newClaim.id} for ${fact.programId}.${fact.field}`);
-      }
+    if (batch.compatibilities && batch.compatibilities.length > 0) {
+      batch.compatibilities.forEach(c => {
+        this.repo.ingestCompatibility(c);
+      });
     }
 
     return {
-      success: true,
-      importedClaims,
-      conflicts,
-      auditTrail
+      batchId: batch.batchId,
+      importedAt: batch.importedAt,
+      acceptedClaims,
+      supersededClaims,
+      conflictedClaims,
+      skippedIdentical,
+      summary: this.repo.getReconciliationSummary(),
+      issues
     };
-  }
-
-  public getClaimsForProgram(programId: string): KnowledgeClaim[] {
-    return this.claimsRegistry.get(programId) || [];
   }
 }

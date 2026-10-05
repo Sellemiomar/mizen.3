@@ -16,6 +16,46 @@ export interface Translations {
   heroAiIntakePlaceholder: string;
   heroAiIntakeSubmit: string;
   heroAiIntakeHint: string;
+  heroTrustSource: string;
+  heroTrustDistinction: string;
+  heroTrustNoPromise: string;
+  heroTrustBilingual: string;
+
+  // How Mizen Works (3-step explanation)
+  howItWorksTitle: string;
+  howItWorksSub: string;
+  step1CardTitle: string;
+  step1CardDesc: string;
+  step2CardTitle: string;
+  step2CardDesc: string;
+  step3CardTitle: string;
+  step3CardDesc: string;
+  guaranteeClarification: string;
+
+  // Stacking & Co-financing
+  stackTitle: string;
+  stackSub: string;
+  stackCard1Title: string;
+  stackCard1Desc: string;
+  stackCard2Title: string;
+  stackCard2Desc: string;
+  stackRuleNotice: string;
+
+  // Transparency
+  transparencyTitle: string;
+  transparencySub: string;
+  transpVerifiedTitle: string;
+  transpVerifiedDesc: string;
+  transpHistoricalTitle: string;
+  transpHistoricalDesc: string;
+  transpCalculatedTitle: string;
+  transpCalculatedDesc: string;
+  transpUnknownTitle: string;
+  transpUnknownDesc: string;
+
+  // Institutional landscape
+  institutionsTitle: string;
+  institutionsSub: string;
 
   // Demo Scenarios
   demoScenariosTitle: string;
@@ -124,15 +164,56 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     navCompare: 'Comparateur',
     navDossier: 'Mon Dossier',
     navDocScan: 'Vérification Documentaire',
-    heroHeadline: 'Comprenez vos options de financement avant d’entamer l’instruction bancaire.',
-    heroSubheadline: 'BFPME, BTS Bank, BH Bank, SOTUGAR, FOPRODI, Microfinance, Startup Act. Mizen analyse l’adéquation de votre situation avec les critères publics officiels et met en évidence ce qui reste à vérifier.',
+    heroHeadline: 'Comprenez comment votre projet peut être financé — avant d’aller voir la banque.',
+    heroSubheadline: 'Mizen est un moteur d’intelligence financière pour la Tunisie. Nous analysons l’adéquation de votre projet avec les critères publics officiels, identifions les règles bloquantes et explorons les montages compatibles — sans inventer de données ni promettre d’accord.',
     heroStartBtn: 'Faire le diagnostic',
-    heroExploreBtn: 'Consulter l’annuaire officiel',
-    heroAiIntakeTitle: 'Ou décrivez votre besoin en langage naturel :',
-    heroAiIntakePlaceholder: 'Ex: Je veux créer une unité industrielle à Zaghouan. Le projet coûte 300 000 DT, j’ai 60 000 DT d’apport et je cherche 240 000 DT...',
+    heroExploreBtn: 'Explorer les mécanismes',
+    heroAiIntakeTitle: 'Décrivez simplement votre projet en langage naturel :',
+    heroAiIntakePlaceholder: 'Ex : J’ouvre un atelier de confection à Monastir. Coût estimé 200 000 DT, apport personnel 50 000 DT et je cherche un financement pour les équipements...',
     heroAiIntakeSubmit: 'Analyser avec Mizen AI',
-    heroAiIntakeHint: 'Mizen sépare rigoureusement le coût total, votre apport et le montant demandé sans inventer de données.',
+    heroAiIntakeHint: 'Les informations manquantes ne sont pas inventées : Mizen sépare le coût global, l’apport personnel et le besoin d’emprunt.',
+    heroTrustSource: 'Sources officielles vérifiées',
+    heroTrustDistinction: 'Distinction faits / incertitudes',
+    heroTrustNoPromise: 'Aucune promesse d’accord automatique',
+    heroTrustBilingual: 'Bilingue Français & العربية',
 
+    // How Mizen Works (3-step explanation)
+    howItWorksTitle: 'Comment fonctionne l’intelligence Mizen',
+    howItWorksSub: 'Une démarche méthodique pour structurer votre recherche de financement en 3 étapes clés.',
+    step1CardTitle: '01. Comprendre le projet',
+    step1CardDesc: 'Coût global, apport personnel, secteur, stade d’avancement, gouvernorat et nature précise des dépenses.',
+    step2CardTitle: '02. Tester la compatibilité & l’éligibilité',
+    step2CardDesc: 'Application des règles éliminatoires, identification des conditions bloquantes, données manquantes et niveau de preuve.',
+    step3CardTitle: '03. Élaborer une stratégie de co-financement',
+    step3CardDesc: 'Quand une seule source ne suffit pas, Mizen analyse les montages potentiellement compatibles (crédit + garantie SOTUGAR, dotation FOPRODI + prêt bancaire).',
+    guaranteeClarification: 'Important : Les garanties (SOTUGAR) sont des instruments de couverture de risque pour le prêteur et ne constituent pas des apports de trésorerie directe.',
+
+    // Stacking & Co-financing
+    stackTitle: 'Stratégies Multi-Sources & Co-Financement',
+    stackSub: 'Parfois, un seul financement ne suffit pas. Mizen évalue si plusieurs mécanismes peuvent former un montage cohérent.',
+    stackCard1Title: 'Financement Unique',
+    stackCard1Desc: 'Un emprunt bancaire ou un leasing direct pour couvrir un besoin ciblé dans la limite des plafonds autorisés.',
+    stackCard2Title: 'Montage Structuré (Co-Financement)',
+    stackCard2Desc: 'Combinaison d’un crédit d’investissement (ex. BFPME ou banque), d’une couverture de risque SOTUGAR et d’une dotation en fonds propres (FOPRODI).',
+    stackRuleNotice: 'Règle d’intégrité : Mizen n’affirme la compatibilité que sur la base de textes réglementaires vérifiés. En l’absence de preuve explicite, la compatibilité reste STRICTEMENT « UNKNOWN » avec un niveau de confiance prudent.',
+
+    // Transparency
+    transparencyTitle: 'Transparence & Intégrité de la Connaissance',
+    transparencySub: 'Mizen applique une séparation stricte entre les différents niveaux de certitude pour ne jamais induire l’entrepreneur en erreur.',
+    transpVerifiedTitle: 'Faits vérifiés & actuels',
+    transpVerifiedDesc: 'Textes de lois, décrets d’application et circulaires de la BCT en vigueur avec traçabilité complète de la source.',
+    transpHistoricalTitle: 'Historique documenté',
+    transpHistoricalDesc: 'Conditions et plafonds antérieurs conservés pour l’audit mais exclus des règles actives sans confirmation d’actualité.',
+    transpCalculatedTitle: 'Calculs & Formules explicites',
+    transpCalculatedDesc: 'Simulations financières basées sur des formules publiques. Aucune simulation n’est fabriquée si la marge ou la relation de taux est incertaine.',
+    transpUnknownTitle: 'Incertitudes préservées (UNKNOWN)',
+    transpUnknownDesc: 'Les paramètres non publiés ou non confirmés restent explicitement « NON PRÉCISÉ » et ne sont jamais remplacés par des zéros ou des valeurs par défaut.',
+
+    // Institutional landscape
+    institutionsTitle: 'Écosystème institutionnel et bancaire couvert',
+    institutionsSub: 'Mécanismes et critères publics indexés dans la base de connaissances de Mizen (sans affiliation ni mandat d’intermédiation).',
+
+    // Demo Scenarios
     demoScenariosTitle: 'Cas de démonstration pilotes (Données synthétiques)',
     demoScenariosSub: 'Sélectionnez un scénario réaliste pour visualiser instantanément le rapport d’intelligence Mizen :',
     demoBadge: 'Cas Démo Synthétique',
@@ -230,15 +311,56 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     navCompare: 'المقارنة',
     navDossier: 'ملفي',
     navDocScan: 'فحص الوثائق',
-    heroHeadline: 'افهم خيارات التمويل المتاحة لمشروعك قبل دخول مرحلة الدراسة البنكية.',
-    heroSubheadline: 'بنك تمويل PME، بنك التضامن، بنك الإسكان، سوتوغار، فبرودي، التمويل الأصغر، ستارت آب آكت. يحلل ميزان مدى ملاءمة وضعيتكم مع المعايير الرسمية ويوضح ما يتطلب التأكيد.',
+    heroHeadline: 'افهم كيف يمكن تمويل مشروعك — قبل التوجه إلى البنك.',
+    heroSubheadline: 'ميزان هو محرك استخبارات التمويل في تونس. يحلل ملاءمة مشروعكم مع المعايير والشروط الرسمية، ويحدد النقاط المعيقة ويستكشف آليات التمويل المتكاملة — دون اختلاق معطيات أو تقديم وعود زائفة بالموافقة.',
     heroStartBtn: 'بدء التشخيص المالي',
-    heroExploreBtn: 'تصفح الدليل الرسمي',
-    heroAiIntakeTitle: 'أو صِف مشروعك باللغة الطبيعية :',
-    heroAiIntakePlaceholder: 'مثال: أريد إحداث وحدة صناعية بزغوان. كلفة المشروع 300 ألف دينار، التمويل الذاتي 60 ألف د وأطلب 240 ألف د تمويل...',
+    heroExploreBtn: 'استكشاف آليات التمويل',
+    heroAiIntakeTitle: 'صِف مشروعك بكل بساطة باللغة الطبيعية :',
+    heroAiIntakePlaceholder: 'مثال : أريد فتح ورشة خياطة في المنستير بكلفة تقديرية 200 ألف دينار، ومساهمة ذاتية بـ 50 ألف دينار وأبحث عن تمويل لاقتناء الآلات والمعدات...',
     heroAiIntakeSubmit: 'تحليل عبر ذكاء ميزان',
-    heroAiIntakeHint: 'يفصل ميزان بدقة بين الكلفة الإجمالية والتمويل الذاتي والمبلغ المطلوب دون اختلاق أي معطيات.',
+    heroAiIntakeHint: 'المعلومات الناقصة لا يتم اختلاقها : يفصل ميزان بدقة بين الكلفة الإجمالية والتمويل الذاتي والمبلغ المطلوب.',
+    heroTrustSource: 'مصادر رسمية موثقة وقانونية',
+    heroTrustDistinction: 'تمييز دقيق بين الوقائع ونقاط التثبت',
+    heroTrustNoPromise: 'دون أي وعود زائفة بالموافقة التلقائية',
+    heroTrustBilingual: 'ثنائي اللغة بالعربية والفرنسية',
 
+    // How Mizen Works (3-step explanation)
+    howItWorksTitle: 'كيف يعمل ذكاء ميزان للتمويل',
+    howItWorksSub: 'منهجية ثلاثية واضحة وموثوقة لهيكلة احتياجاتك التمويلية.',
+    step1CardTitle: '01. استيعاب معطيات المشروع',
+    step1CardDesc: 'الكلفة الجملية، المساهمة الذاتية، قطاع النشاط، مرحلة التقدم، ولاية الانتصاب وطبيعة النفقات المؤهلة.',
+    step2CardTitle: '02. فحص الملاءمة والأهلية الفنية',
+    step2CardDesc: 'تطبيق الشروط الإقصائية، رصد المعايير المعيقة، حصر المعطيات الناقصة وتحديد درجة التوثيق القانوني.',
+    step3CardTitle: '03. صياغة استراتيجية التمويل والتركيبات',
+    step3CardDesc: 'عندما لا يكفي مصدر واحد، يدرس ميزان التركيبات الممكنة والمتوافقة (قرض استثمار + كفالة سوتوغار، أو منحة فبرودي + قرض بنكي).',
+    guaranteeClarification: 'تنبيه هام : آليات الضمان والكفالة (مثل سوتوغار) هي أدوات لتغطية مخاطر القرض بالنسبة للبنك وليست مبالغ سيولة تمنح للباعث.',
+
+    // Stacking & Co-financing
+    stackTitle: 'استراتيجيات التمويل المتعدد والتركيبات المتكاملة',
+    stackSub: 'في كثير من الأحيان، لا تكفي آلية واحدة. يقيّم ميزان ما إذا كانت عدة مصادر تمويلية قابلة للجمع وفق النصوص القانونية.',
+    stackCard1Title: 'التمويل الأحادي المباشر',
+    stackCard1Desc: 'قرض بنكي أو إيجار مالي مباشر لتغطية احتياج محدد ضمن السقف الفردي المسموح به.',
+    stackCard2Title: 'التركيبة التمويلية المتكاملة (Co-Financement)',
+    stackCard2Desc: 'الجمع بين قرض استثماري متوسط/طويل المدى (BFPME أو بنك تجاري) مع تغطية مخاطر سوتوغار ومنحة في الأموال الذاتية (FOPRODI).',
+    stackRuleNotice: 'مبدأ النزاهة : لا يؤكد ميزان التوافق بين الآليات إلا استناداً لنصوص وقوانين رسمية منشورة. وعند غياب الإثبات، تبقى الحالة حصراً « UNKNOWN » بمستوى ثقة حذر.',
+
+    // Transparency
+    transparencyTitle: 'ميثاق الشفافية ونزاهة المعرفة المالية',
+    transparencySub: 'يعتمد ميزان فصلاً صارماً بين مستويات اليقين لضمان عدم تضليل الباعث أو المغامرة بمعطيات غير مؤكدة.',
+    transpVerifiedTitle: 'معطيات موثقة وسارية المفعول',
+    transpVerifiedDesc: 'نصوص قوانين ومراسيم تنفيذية ومناشير البنك المركزي السارية مع التوثيق الكامل للمصدر وتاريخ الاسترجاع.',
+    transpHistoricalTitle: 'سجل تاريخي موثق',
+    transpHistoricalDesc: 'شروط وسقوف سابقة محفوظة لأغراض التدقيق والمقارنة، ومستبعدة من القواعد النشطة دون تأكيد سريانها الحالي.',
+    transpCalculatedTitle: 'حسابات وصيغ مالية شفافة',
+    transpCalculatedDesc: 'محاكاة مالية مبنية على معادلات واضحة. ولا يتم توليد أي جدول سداد في حال كان الهامش أو النسبة غير محددة بدقة.',
+    transpUnknownTitle: 'الحفاظ على المعطيات غير المحددة (UNKNOWN)',
+    transpUnknownDesc: 'الشروط غير المنشورة أو غير المؤكدة تبقى صراحة « غير محدد » ولا يتم أبداً تحويلها إلى أصفار أو فرض معطيات افتراضية.',
+
+    // Institutional landscape
+    institutionsTitle: 'المنظومة المؤسساتية والبنكية المشمولة بالتغطية',
+    institutionsSub: 'الآليات والمعايير العامة المفهرسة في قاعدة معرفة ميزان (دون أي ادعاء تمثيل أو توكيل بنكي).',
+
+    // Demo Scenarios
     demoScenariosTitle: 'حالات تجريبية نموذجية للشركاء والبنوك (معطيات اصطناعية)',
     demoScenariosSub: 'اختر حالة واقعية للاطلاع الفوري على تقرير استخبارات التمويل لميزان :',
     demoBadge: 'حالة تجريبية نموذجية',
